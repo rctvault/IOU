@@ -108,7 +108,7 @@ export default function Home() {
   }
 
   return (
-    <main className="flex min-h-screen flex-col px-5 py-10">
+    <main className="flex min-h-screen flex-col px-5 pt-[calc(env(safe-area-inset-top)+2.5rem)] pb-[calc(env(safe-area-inset-bottom)+2.5rem)]">
       <div className="mb-8">
         <div className="mb-3 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-brand text-2xl">
           💸

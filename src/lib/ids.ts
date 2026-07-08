@@ -17,16 +17,19 @@ export function shareCode(length = 6): string {
   return out;
 }
 
-// A pleasant, high-contrast palette for member avatars.
+// Member avatar palette. Built from the brand palette (bleu canard, coral,
+// bordeaux, aqua) plus three earthy tones — ochre, sage, plum — added to blend
+// with it and give ~8 distinct colors (groups run up to 6). Snow / vert d'eau
+// are the app background, so they aren't used as avatars. Ordered so the first
+// six are maximally distinct.
 export const MEMBER_COLORS = [
-  "#ef4444",
-  "#f97316",
-  "#eab308",
-  "#22c55e",
-  "#14b8a6",
-  "#3b82f6",
-  "#8b5cf6",
-  "#ec4899",
+  "#FF6038", // orange corail
+  "#A0C9CB", // aqua
+  "#733635", // bordeaux
+  "#C99A46", // ochre
+  "#7C9885", // sage
+  "#7E5D6E", // plum
+  "#361E1C", // bordeaux profond
 ];
 
 export function nextColor(usedCount: number): string {

@@ -1,15 +1,15 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f4f5f7;
+  --background: #f6f5ed; /* snow */
   --surface: #ffffff;
-  --foreground: #14161a;
-  --muted: #6b7280;
-  --border: #e5e7eb;
-  --brand: #4f46e5;
+  --foreground: #241f1d;
+  --muted: #6f6a60;
+  --border: #e4e2d6; /* soft warm hairline */
+  --brand: #11363e; /* bleu canard */
   --brand-fg: #ffffff;
-  --positive: #059669;
-  --negative: #dc2626;
+  --positive: #0f6e56; /* deep teal-green, "gets back" */
+  --negative: #b23b2e; /* brick red, "owes" */
 }
 
 @theme inline {
@@ -24,10 +24,43 @@
   --font-sans: var(--font-geist-sans);
 }
 
+html {
+  /* Fill the notch/home-indicator area with the app background. */
+  background: var(--background);
+  -webkit-text-size-adjust: 100%;
+  /* Larger base size so text AND tap targets scale up for all ages. */
+  font-size: 112.5%;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans), system-ui, sans-serif;
+  /* No gray flash on tap; snappier touch on iOS. */
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* Momentum scrolling inside scrollable panels. */
+.scroll-touch {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+/* Sheet enter/exit transitions (applied via .sheet-* classes in Sheet). */
+.sheet-backdrop {
+  opacity: 0;
+  transition: opacity 0.28s ease;
+}
+.sheet-backdrop[data-show="true"] {
+  opacity: 1;
+}
+.sheet-panel {
+  transform: translateY(100%);
+  transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.sheet-panel[data-show="true"] {
+  transform: translateY(0);
 }
 
 /* Reusable primitives kept small; most styling is utility classes in components. */
@@ -51,7 +84,8 @@ body {
       hover:bg-black/5 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50;
   }
   .input {
-    @apply w-full rounded-xl border border-border bg-surface px-3.5 py-2.5 text-sm
+    /* text-base (16px) prevents iOS Safari from auto-zooming on focus. */
+    @apply w-full rounded-xl border border-border bg-surface px-3.5 py-2.5 text-base
       outline-none focus:border-brand focus:ring-2 focus:ring-brand/20;
   }
   .label {

@@ -46,7 +46,7 @@ export function CurrencyList({
           >
             {code}
             {code === home ? (
-              <span className="text-[10px] uppercase tracking-wide text-brand/70">
+              <span className="text-xs uppercase tracking-wide text-brand/70">
                 home
               </span>
             ) : (

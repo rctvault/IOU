@@ -16,10 +16,14 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#4f46e5",
+  themeColor: "#11363e",
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
+  // No maximumScale — let users pinch-zoom for accessibility. (16px inputs
+  // already prevent the annoying focus auto-zoom.)
+  // Let content extend under the notch/home indicator so we can pad with
+  // env(safe-area-inset-*) ourselves.
+  viewportFit: "cover",
 };
 
 export default function RootLayout({

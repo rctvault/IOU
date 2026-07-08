@@ -2,6 +2,20 @@ import type { Member } from "./types";
 
 export { formatMoney } from "./currency";
 
+/**
+ * Pick a readable text color for initials/labels sitting on a colored chip:
+ * a warm near-black on light backgrounds, white on dark ones.
+ */
+export function readableTextOn(hex: string): string {
+  const c = hex.replace("#", "");
+  if (c.length < 6) return "#ffffff";
+  const r = parseInt(c.slice(0, 2), 16);
+  const g = parseInt(c.slice(2, 4), 16);
+  const b = parseInt(c.slice(4, 6), 16);
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance > 0.6 ? "#2c2622" : "#ffffff";
+}
+
 export function initials(name: string): string {
   const parts = name.trim().split(/\s+/);
   if (parts.length === 0 || parts[0] === "") return "?";

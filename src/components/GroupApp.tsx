@@ -143,7 +143,7 @@ export default function GroupApp({ code }: { code: string }) {
   return (
     <div className="flex min-h-screen flex-col pb-28">
       {/* Header */}
-      <header className="bg-brand px-5 pb-5 pt-8 text-white">
+      <header className="bg-brand px-5 pb-5 pt-[calc(env(safe-area-inset-top)+1.5rem)] text-white">
         <div className="flex items-start justify-between">
           <div>
             <Link href="/" className="text-xs text-white/70">
@@ -159,7 +159,7 @@ export default function GroupApp({ code }: { code: string }) {
           </div>
           <button
             onClick={copyInvite}
-            className="rounded-xl bg-white/15 px-3 py-2 text-right text-xs font-semibold backdrop-blur"
+            className="rounded-xl bg-white/15 px-3 py-2 text-center text-xs font-semibold backdrop-blur"
           >
             <div className="text-white/70">Invite code</div>
             <div className="text-base tracking-[0.2em]">{group.shareCode}</div>
@@ -275,7 +275,7 @@ export default function GroupApp({ code }: { code: string }) {
       </main>
 
       {/* Action bar */}
-      <div className="fixed inset-x-0 bottom-0 z-40 mx-auto max-w-md border-t border-border bg-surface/90 px-5 py-3 backdrop-blur">
+      <div className="fixed inset-x-0 bottom-0 z-40 mx-auto max-w-md border-t border-border bg-surface/90 px-5 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] backdrop-blur">
         <div className="flex gap-3">
           <button
             className="btn-outline"
@@ -406,7 +406,7 @@ function ExpenseRow({
             {expense.label || "Expense"}
           </span>
           {justAdded && (
-            <span className="shrink-0 rounded-full bg-positive/10 px-2 py-0.5 text-[10px] font-medium text-positive">
+            <span className="shrink-0 rounded-full bg-positive/10 px-2 py-0.5 text-xs font-medium text-positive">
               added {formatRelative(expense.createdAt)}
             </span>
           )}
