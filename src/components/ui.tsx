@@ -69,7 +69,7 @@ export function Sheet({
 
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex justify-center">
+    <div className="fixed inset-x-0 top-0 z-50 flex h-[100dvh] justify-center">
       <div
         className="sheet-backdrop absolute inset-0 bg-black/40"
         data-show={show ? "true" : "false"}
@@ -77,7 +77,7 @@ export function Sheet({
         aria-hidden
       />
       <div
-        className="sheet-panel relative mt-auto flex max-h-[92vh] w-full max-w-md flex-col rounded-t-3xl bg-background shadow-2xl"
+        className="sheet-panel relative mt-auto flex max-h-[92dvh] w-full max-w-md flex-col rounded-t-3xl bg-background shadow-2xl"
         data-show={show ? "true" : "false"}
       >
         <div className="mx-auto mt-2.5 h-1.5 w-10 rounded-full bg-black/15" />
@@ -95,7 +95,7 @@ export function Sheet({
           {children}
         </div>
         {footer && (
-          <div className="border-t border-border bg-surface px-5 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+          <div className="border-t border-border bg-surface px-5 pt-3 pb-[calc(1.25rem+env(safe-area-inset-bottom))]">
             {footer}
           </div>
         )}
