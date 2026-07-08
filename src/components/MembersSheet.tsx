@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { nextColor } from "@/lib/ids";
+import { MEMBER_COLORS, nextColor } from "@/lib/ids";
 import { getStore } from "@/lib/store";
 import { isActive, type GroupBundle } from "@/lib/types";
 import { Avatar, Sheet } from "./ui";
@@ -51,6 +51,18 @@ export function MembersSheet({
     if (!window.confirm(message)) return;
     const store = await getStore();
     await store.removeMember(id);
+    await onChanged();
+  }
+
+  async function refreshColors() {
+    setBusy(true);
+    const store = await getStore();
+    for (let i = 0; i < members.length; i++) {
+      await store.updateMember(members[i].id, {
+        color: MEMBER_COLORS[i % MEMBER_COLORS.length],
+      });
+    }
+    setBusy(false);
     await onChanged();
   }
 
@@ -111,6 +123,16 @@ export function MembersSheet({
           Add
         </button>
       </form>
+
+      {members.length > 0 && (
+        <button
+          onClick={refreshColors}
+          disabled={busy}
+          className="btn-ghost mt-4 w-full text-sm text-muted"
+        >
+          Refresh avatar colors
+        </button>
+      )}
 
       <p className="mt-4 text-xs text-muted">
         “Left?” marks someone who has left the trip — they&apos;re kept out of new
