@@ -24,6 +24,7 @@ type GroupRow = {
   name: string;
   home_currency: string;
   currencies: string[] | null;
+  fx_rates: Group["fxRates"] | null;
   share_code: string;
   created_at: string;
 };
@@ -32,6 +33,7 @@ const toGroup = (r: GroupRow): Group => ({
   name: r.name,
   homeCurrency: r.home_currency,
   currencies: r.currencies?.length ? r.currencies : [r.home_currency],
+  fxRates: r.fx_rates ?? {},
   shareCode: r.share_code,
   createdAt: r.created_at,
 });
@@ -197,6 +199,7 @@ export function createSupabaseStore(): Store {
                 patch.currencies,
               ).filter(Boolean)
             : null,
+        p_fx_rates: patch.fxRates ?? null,
       });
       return toGroup(row);
     },

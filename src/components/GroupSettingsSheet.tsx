@@ -5,6 +5,7 @@ import { CURRENCIES } from "@/lib/currencies";
 import { getStore } from "@/lib/store";
 import { groupCurrencies, type GroupBundle } from "@/lib/types";
 import { CurrencyList } from "./CurrencyList";
+import { FxRatesEditor } from "./FxRatesEditor";
 import { Sheet } from "./ui";
 
 export function GroupSettingsSheet({
@@ -91,6 +92,10 @@ export function GroupSettingsSheet({
         <div>
           <label className="label">Trip currencies</label>
           <CurrencyList home={home} value={currencies} onChange={setCurrencies} />
+        </div>
+        <div>
+          <label className="label">Exchange rates</label>
+          <FxRatesEditor bundle={bundle} onChanged={onChanged} />
         </div>
         <p className="text-xs text-muted">
           Changing the home currency re-expresses everyone&apos;s balances in the

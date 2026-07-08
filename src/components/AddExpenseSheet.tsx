@@ -62,8 +62,8 @@ export function AddExpenseSheet({
     ),
   );
   const [pickingCurrency, setPickingCurrency] = useState(false);
-  const [fxRate, setFxRate] = useState(String(editing?.fxRateToHome ?? 1));
-  const [fxAuto, setFxAuto] = useState(false);
+  // Auto-fetched rate for a currency the group doesn't have a rate for yet.
+  const [autoRate, setAutoRate] = useState<number | null>(null);
   const [taxRate, setTaxRate] = useState(String(editing?.taxRate ?? 0));
   const [splitMode, setSplitMode] = useState<"equal" | "itemized">(
     editing?.splitMode ?? "equal",
@@ -109,21 +109,25 @@ export function AddExpenseSheet({
     }),
   );
 
-  // Auto-fetch FX when the expense currency differs from home.
+  // The trip rate for this currency (if the group has one), else null.
+  const groupRate =
+    currency === home ? 1 : group.fxRates?.[currency]?.rate ?? null;
+  const rateIsManual = Boolean(group.fxRates?.[currency]?.manual);
+  const effectiveRate =
+    currency === home
+      ? 1
+      : groupRate ?? autoRate ?? editing?.fxRateToHome ?? 1;
+
+  // Fetch a rate only when the group doesn't already have one for this currency.
   useEffect(() => {
     let active = true;
-    if (currency === home) {
-      setFxRate("1");
-      setFxAuto(false);
+    if (currency === home || group.fxRates?.[currency]) {
+      setAutoRate(null);
       return;
     }
-    // Don't clobber an existing manual rate when editing the same currency.
     (async () => {
       const result = await fetchFxRate(currency, home);
-      if (active && result) {
-        setFxRate(String(result.rate));
-        setFxAuto(true);
-      }
+      if (active) setAutoRate(result?.rate ?? null);
     })();
     return () => {
       active = false;
@@ -138,7 +142,7 @@ export function AddExpenseSheet({
       id: "preview",
       payerMemberId: payerId,
       currency,
-      fxRateToHome: num(fxRate) || 1,
+      fxRateToHome: effectiveRate,
       taxRate: num(taxRate),
       splitMode,
       subtotal: splitMode === "equal" ? num(subtotal) : undefined,
@@ -148,7 +152,7 @@ export function AddExpenseSheet({
         discountPct: s.discountPct,
       })),
     }),
-    [payerId, currency, fxRate, taxRate, splitMode, subtotal, items, included],
+    [payerId, currency, effectiveRate, taxRate, splitMode, subtotal, items, included],
   );
 
   const breakdown = useMemo(
@@ -182,11 +186,21 @@ export function AddExpenseSheet({
     if (!canSave) return;
     setBusy(true);
     const store = await getStore();
+    // Make sure the group has a trip rate for this currency (auto), so it's
+    // shown and editable in Settle up and shared by every expense.
+    if (currency !== home && !group.fxRates?.[currency]) {
+      await store.updateGroup(group.id, {
+        fxRates: {
+          ...(group.fxRates ?? {}),
+          [currency]: { rate: effectiveRate, manual: false },
+        },
+      });
+    }
     const record = {
       label: label.trim() || "Expense",
       payerMemberId: payerId,
       currency,
-      fxRateToHome: num(fxRate) || 1,
+      fxRateToHome: effectiveRate,
       taxRate: num(taxRate),
       splitMode,
       subtotal: splitMode === "equal" ? num(subtotal) : undefined,
@@ -364,19 +378,23 @@ export function AddExpenseSheet({
         )}
 
         {currency !== home && (
-          <div>
-            <label className="label">
-              Rate (1 {currency} → {home}) {fxAuto && "· auto"}
-            </label>
-            <input
-              className="input"
-              inputMode="decimal"
-              value={fxRate}
-              onChange={(e) => {
-                setFxRate(e.target.value);
-                setFxAuto(false);
-              }}
-            />
+          <div className="rounded-xl border border-border bg-surface px-3.5 py-2.5">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted">Rate</span>
+              <span className="font-medium">
+                1 {currency} ={" "}
+                {effectiveRate.toLocaleString(undefined, {
+                  maximumFractionDigits: 4,
+                })}{" "}
+                {home}
+                <span className="ml-1.5 rounded-full bg-black/5 px-1.5 py-0.5 text-xs text-muted">
+                  {rateIsManual ? "manual" : "auto"}
+                </span>
+              </span>
+            </div>
+            <div className="mt-1 text-xs text-muted">
+              Shared by all {currency} expenses — change it in Settle up.
+            </div>
           </div>
         )}
 
@@ -545,7 +563,7 @@ export function AddExpenseSheet({
                 {formatMoney(breakdown.grossTotal, currency)}
                 {currency !== home && (
                   <span className="ml-1 text-xs text-muted">
-                    ≈ {formatMoney(breakdown.grossTotal * (num(fxRate) || 1), home)}
+                    ≈ {formatMoney(breakdown.grossTotal * effectiveRate, home)}
                   </span>
                 )}
               </span>

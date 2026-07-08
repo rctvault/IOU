@@ -5,6 +5,7 @@ import { formatMoney, memberName, todayISO } from "@/lib/format";
 import { getStore } from "@/lib/store";
 import type { Balance, Transfer } from "@/lib/split";
 import type { GroupBundle } from "@/lib/types";
+import { FxRatesEditor } from "./FxRatesEditor";
 import { Avatar, Sheet } from "./ui";
 
 export function SettleUpSheet({
@@ -76,6 +77,15 @@ export function SettleUpSheet({
           })}
         </div>
       </div>
+
+      <details className="mb-5">
+        <summary className="cursor-pointer text-sm font-semibold text-muted">
+          Exchange rates
+        </summary>
+        <div className="mt-2">
+          <FxRatesEditor bundle={bundle} onChanged={onSettled} />
+        </div>
+      </details>
 
       {transfers.length === 0 ? (
         <div className="card p-6 text-center">

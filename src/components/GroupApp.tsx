@@ -17,7 +17,12 @@ import {
   computeExpenseBreakdown,
   simplifyDebts,
 } from "@/lib/split";
-import { groupCurrencies, type ExpenseRecord, type GroupBundle } from "@/lib/types";
+import {
+  groupCurrencies,
+  groupRateFor,
+  type ExpenseRecord,
+  type GroupBundle,
+} from "@/lib/types";
 import { AddExpenseSheet } from "./AddExpenseSheet";
 import { GroupSettingsSheet } from "./GroupSettingsSheet";
 import { HistorySheet } from "./HistorySheet";
@@ -88,11 +93,13 @@ export default function GroupApp({ code }: { code: string }) {
   // Balances (and the active screen) reflect only un-archived activity.
   const balances = useMemo(() => {
     if (!bundle) return [];
+    const g = bundle.group;
     return computeBalances(
       memberIds,
       bundle.expenses.filter((e) => !e.archivedAt && !e.deletedAt),
       home,
       bundle.settlements.filter((s) => !s.archivedAt),
+      (e) => groupRateFor(g, e.currency, e.fxRateToHome),
     );
   }, [bundle, memberIds, home]);
 
@@ -218,7 +225,8 @@ export default function GroupApp({ code }: { code: string }) {
                 const dayTotal = items.reduce(
                   (sum, e) =>
                     sum +
-                    computeExpenseBreakdown(e, home).grossTotal * e.fxRateToHome,
+                    computeExpenseBreakdown(e, home).grossTotal *
+                      groupRateFor(group, e.currency, e.fxRateToHome),
                   0,
                 );
                 return (
@@ -385,7 +393,9 @@ function ExpenseRow({
 }) {
   const home = bundle.group.homeCurrency;
   const breakdown = computeExpenseBreakdown(expense, home);
-  const homeTotal = breakdown.grossTotal * expense.fxRateToHome;
+  const homeTotal =
+    breakdown.grossTotal *
+    groupRateFor(bundle.group, expense.currency, expense.fxRateToHome);
   const itemSummary =
     expense.splitMode === "itemized"
       ? expense.lineItems

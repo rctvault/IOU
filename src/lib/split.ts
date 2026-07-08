@@ -116,8 +116,11 @@ function rawSubtotals(expense: Expense): Map<string, number> {
 export function computeExpenseBreakdown(
   expense: Expense,
   homeCurrency: CurrencyCode,
+  /** home-per-unit rate for this expense's currency; defaults to the expense's own. */
+  fxRate: number = expense.fxRateToHome,
 ): ExpenseBreakdown {
-  const { currency, taxRate, payerMemberId, fxRateToHome } = expense;
+  const { currency, taxRate, payerMemberId } = expense;
+  const fxRateToHome = fxRate;
   const subs = rawSubtotals(expense);
   const ids = expense.participants.map((p) => p.memberId);
 
@@ -171,6 +174,8 @@ export function computeBalances(
   expenses: Expense[],
   homeCurrency: CurrencyCode,
   settlements: Settlement[] = [],
+  /** home-per-unit rate for an expense; defaults to the expense's own rate. */
+  rateFor: (expense: Expense) => number = (e) => e.fxRateToHome,
 ): Balance[] {
   const bal = new Map<string, number>();
   for (const id of memberIds) bal.set(id, 0);
@@ -178,7 +183,11 @@ export function computeBalances(
     bal.set(id, (bal.get(id) ?? 0) + delta);
 
   for (const expense of expenses) {
-    const { shares } = computeExpenseBreakdown(expense, homeCurrency);
+    const { shares } = computeExpenseBreakdown(
+      expense,
+      homeCurrency,
+      rateFor(expense),
+    );
     for (const s of shares) {
       if (s.memberId === expense.payerMemberId) continue;
       add(s.memberId, -s.owedHome); // this member owes the payer

@@ -81,6 +81,7 @@ export function createLocalStore(): Store {
         name: input.name,
         homeCurrency: input.homeCurrency,
         currencies: normalizeCurrencies(input.homeCurrency, input.currencies),
+        fxRates: {},
         shareCode: code,
         createdAt: new Date().toISOString(),
       };
@@ -116,6 +117,7 @@ export function createLocalStore(): Store {
           patch.currencies ?? g.currencies,
         );
       }
+      if (patch.fxRates !== undefined) g.fxRates = patch.fxRates;
       writeBundle(bundle);
       return g;
     },

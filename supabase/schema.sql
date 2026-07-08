@@ -66,6 +66,7 @@ alter table members     add column if not exists active boolean not null default
 alter table expenses    add column if not exists archived_at timestamptz;
 alter table expenses    add column if not exists deleted_at timestamptz;
 alter table settlements add column if not exists archived_at timestamptz;
+alter table groups      add column if not exists fx_rates jsonb not null default '{}'::jsonb;
 
 create index if not exists members_group_idx    on members(group_id);
 create index if not exists expenses_group_idx    on expenses(group_id);
@@ -183,11 +184,15 @@ begin
 end;
 $$;
 
+-- Note: the older 4-arg update_group (without p_fx_rates) is intentionally left
+-- in place so a previously-deployed frontend keeps working during a rollout.
+-- This 5-arg version is what the current app calls.
 create or replace function update_group(
   p_code text,
   p_name text,
   p_home_currency text,
-  p_currencies jsonb
+  p_currencies jsonb,
+  p_fx_rates jsonb
 )
 returns groups
 language plpgsql
@@ -199,7 +204,8 @@ begin
   update groups set
     name = coalesce(p_name, name),
     home_currency = coalesce(p_home_currency, home_currency),
-    currencies = coalesce(p_currencies, currencies)
+    currencies = coalesce(p_currencies, currencies),
+    fx_rates = coalesce(p_fx_rates, fx_rates)
   where id = app_group_id(p_code)
   returning * into v_row;
   return v_row;
@@ -394,7 +400,7 @@ $$;
 
 grant execute on function create_group(text, text, jsonb)            to anon, authenticated;
 grant execute on function get_group_bundle(text)                     to anon, authenticated;
-grant execute on function update_group(text, text, text, jsonb)      to anon, authenticated;
+grant execute on function update_group(text, text, text, jsonb, jsonb) to anon, authenticated;
 grant execute on function delete_group(text)                         to anon, authenticated;
 grant execute on function add_member(text, text, text)                 to anon, authenticated;
 grant execute on function update_member(text, uuid, text, text, boolean) to anon, authenticated;

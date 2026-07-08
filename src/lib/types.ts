@@ -3,6 +3,13 @@
 import type { CurrencyCode } from "./currency";
 import type { LineItem, Participant, SplitMode } from "./split";
 
+/** One trip-wide exchange rate for a currency: units of home per 1 unit of it. */
+export interface FxRateEntry {
+  rate: number;
+  /** true = set by a person (don't auto-refresh); false = auto-fetched. */
+  manual: boolean;
+}
+
 export interface Group {
   id: string;
   name: string;
@@ -13,9 +20,29 @@ export interface Group {
    * option to add more), instead of the full ISO list.
    */
   currencies: CurrencyCode[];
+  /**
+   * One exchange rate per non-home currency for the whole trip. Every expense
+   * in a currency converts using this rate, so overriding it here updates all
+   * of them at once.
+   */
+  fxRates: Record<CurrencyCode, FxRateEntry>;
   /** Short human-shareable code embedded in the URL (/g/<shareCode>). */
   shareCode: string;
   createdAt: string;
+}
+
+/**
+ * The home-per-unit rate to use for a currency: 1 for the home currency, the
+ * group's trip rate if set, otherwise the provided fallback (a legacy
+ * expense's own stored rate, or 1).
+ */
+export function groupRateFor(
+  group: Group,
+  currency: CurrencyCode,
+  fallback = 1,
+): number {
+  if (currency === group.homeCurrency) return 1;
+  return group.fxRates?.[currency]?.rate ?? fallback;
 }
 
 /** The group's currency list, guaranteed to include home and be de-duplicated. */
@@ -96,7 +123,7 @@ export type NewGroup = Pick<Group, "name" | "homeCurrency"> & {
   currencies?: CurrencyCode[];
 };
 export type GroupPatch = Partial<
-  Pick<Group, "name" | "homeCurrency" | "currencies">
+  Pick<Group, "name" | "homeCurrency" | "currencies" | "fxRates">
 >;
 export type NewMember = Pick<Member, "name" | "color">;
 export type MemberPatch = Partial<Pick<Member, "name" | "color" | "active">>;
