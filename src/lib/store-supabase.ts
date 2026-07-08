@@ -188,7 +188,9 @@ export function createSupabaseStore(): Store {
     },
 
     async updateGroup(_id, patch) {
-      const row = await call<GroupRow>("update_group", {
+      // Only send p_fx_rates when it's actually being changed, so name/currency
+      // updates still match the older 4-arg function on a not-yet-migrated DB.
+      const args: Record<string, unknown> = {
         p_code: requireCode(),
         p_name: patch.name ?? null,
         p_home_currency: patch.homeCurrency ?? null,
@@ -199,8 +201,9 @@ export function createSupabaseStore(): Store {
                 patch.currencies,
               ).filter(Boolean)
             : null,
-        p_fx_rates: patch.fxRates ?? null,
-      });
+      };
+      if (patch.fxRates !== undefined) args.p_fx_rates = patch.fxRates;
+      const row = await call<GroupRow>("update_group", args);
       return toGroup(row);
     },
 

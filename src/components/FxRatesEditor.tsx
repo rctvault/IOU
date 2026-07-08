@@ -52,11 +52,20 @@ export function FxRatesEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const [error, setError] = useState<string | null>(null);
+
   async function save(next: Record<string, FxRateEntry>) {
     setRates(next);
-    const store = await getStore();
-    await store.updateGroup(group.id, { fxRates: next });
-    await onChanged();
+    try {
+      const store = await getStore();
+      await store.updateGroup(group.id, { fxRates: next });
+      setError(null);
+      await onChanged();
+    } catch {
+      setError(
+        "Couldn't save the rate. If this just launched, re-run supabase/schema.sql.",
+      );
+    }
   }
 
   function commit(c: string) {
@@ -127,6 +136,7 @@ export function FxRatesEditor({
           </div>
         );
       })}
+      {error && <p className="text-xs text-negative">{error}</p>}
       <p className="pt-1 text-xs text-muted">
         Each rate applies to every expense in that currency. Type your own to
         match the rate your bank gave you.

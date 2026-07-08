@@ -187,14 +187,20 @@ export function AddExpenseSheet({
     setBusy(true);
     const store = await getStore();
     // Make sure the group has a trip rate for this currency (auto), so it's
-    // shown and editable in Settle up and shared by every expense.
+    // shown and editable in Settle up and shared by every expense. Non-fatal:
+    // if it fails (e.g. DB not migrated yet), the expense still saves and
+    // converts via its own stored rate.
     if (currency !== home && !group.fxRates?.[currency]) {
-      await store.updateGroup(group.id, {
-        fxRates: {
-          ...(group.fxRates ?? {}),
-          [currency]: { rate: effectiveRate, manual: false },
-        },
-      });
+      try {
+        await store.updateGroup(group.id, {
+          fxRates: {
+            ...(group.fxRates ?? {}),
+            [currency]: { rate: effectiveRate, manual: false },
+          },
+        });
+      } catch {
+        // ignore — rate falls back to the expense's own fxRateToHome
+      }
     }
     const record = {
       label: label.trim() || "Expense",
