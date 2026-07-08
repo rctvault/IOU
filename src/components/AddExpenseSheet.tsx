@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { CURRENCIES } from "@/lib/currencies";
-import { formatMoney, todayISO } from "@/lib/format";
+import { formatDate, formatMoney, todayISO } from "@/lib/format";
 import { fetchFxRate } from "@/lib/fx";
 import { getStore } from "@/lib/store";
 import { computeExpenseBreakdown, type Expense, type LineItem } from "@/lib/split";
@@ -78,6 +78,25 @@ export function AddExpenseSheet({
     (editing?.participants ?? []).some((p) => p.discountPct > 0),
   );
   const [busy, setBusy] = useState(false);
+  const dateRef = useRef<HTMLInputElement>(null);
+
+  // Open the native date picker from the compact date chip.
+  function openDatePicker() {
+    const el = dateRef.current as
+      | (HTMLInputElement & { showPicker?: () => void })
+      | null;
+    if (!el) return;
+    try {
+      if (typeof el.showPicker === "function") {
+        el.showPicker();
+        return;
+      }
+    } catch {
+      // fall through
+    }
+    el.focus();
+    el.click();
+  }
 
   const [memberStates, setMemberStates] = useState<MemberState[]>(() =>
     members.map((m) => {
@@ -229,20 +248,29 @@ export function AddExpenseSheet({
     >
       <div className="space-y-4">
         <div>
-          <label className="label">What was it?</label>
+          <div className="mb-1.5 flex items-center justify-between">
+            <label className="label mb-0">What was it?</label>
+            <button
+              type="button"
+              onClick={openDatePicker}
+              className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1 text-xs font-medium text-muted active:scale-[0.98]"
+            >
+              📅 {date === todayISO() ? "Today" : formatDate(date)}
+            </button>
+          </div>
           <input
             className="input"
             placeholder="e.g. Dinner at Ichiran"
             value={label}
             onChange={(e) => setLabel(e.target.value)}
           />
-        </div>
-
-        <div>
-          <label className="label">Date</label>
+          {/* Hidden native picker driven by the chip above. */}
           <input
+            ref={dateRef}
             type="date"
-            className="input"
+            className="sr-only"
+            tabIndex={-1}
+            aria-label="Expense date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
           />
