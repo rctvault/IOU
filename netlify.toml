@@ -1,0 +1,10 @@
+# Netlify build config. Netlify auto-detects Next.js and installs its Next.js
+# runtime (server routes + SSR run as serverless functions). Set the two
+# NEXT_PUBLIC_SUPABASE_* env vars in the Netlify UI (Site settings → Environment
+# variables) to switch the app into shared cloud mode.
+
+[build]
+  command = "npm run build"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"

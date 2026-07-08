@@ -1,65 +1,262 @@
-import Image from "next/image";
+"use client";
+
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { CurrencyList } from "@/components/CurrencyList";
+import { CURRENCIES } from "@/lib/currencies";
+import {
+  forgetGroup,
+  listRecentGroups,
+  recoverDeviceGroups,
+  type RecentGroup,
+} from "@/lib/recent-groups";
+import { getStore, isCloudEnabled } from "@/lib/store";
 
 export default function Home() {
+  const router = useRouter();
+  const [name, setName] = useState("");
+  const [currency, setCurrency] = useState("JPY");
+  const [currencies, setCurrencies] = useState<string[]>(["JPY"]);
+  const [code, setCode] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [recents, setRecents] = useState<RecentGroup[]>([]);
+  const [confirmingCode, setConfirmingCode] = useState<string | null>(null);
+  const [confirmText, setConfirmText] = useState("");
+  const [deleting, setDeleting] = useState(false);
+
+  // Client-only: the remembered-groups list lives in localStorage.
+  useEffect(() => setRecents(listRecentGroups()), []);
+
+  function restoreGroups() {
+    const n = recoverDeviceGroups();
+    setRecents(listRecentGroups());
+    if (n === 0) {
+      window.alert(
+        "No groups were found stored on this device. If you're in shared/cloud mode, reopen a group with its invite code instead.",
+      );
+    }
+  }
+
+  function startDelete(groupCode: string) {
+    setConfirmingCode(groupCode);
+    setConfirmText("");
+  }
+
+  async function confirmDelete(groupCode: string) {
+    if (confirmText.trim().toLowerCase() !== "delete") return;
+    setDeleting(true);
+    try {
+      const store = await getStore();
+      const bundle = await store.getGroupByCode(groupCode);
+      if (bundle) await store.deleteGroup(bundle.group.id);
+      forgetGroup(groupCode);
+      setRecents(listRecentGroups());
+      setConfirmingCode(null);
+    } catch {
+      setError("Could not delete that group. Please try again.");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  function changeHome(next: string) {
+    setCurrency(next);
+    setCurrencies((prev) =>
+      [next, ...prev].filter((c, i, a) => a.indexOf(c) === i),
+    );
+  }
+
+  async function createGroup(e: React.FormEvent) {
+    e.preventDefault();
+    if (!name.trim()) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const store = await getStore();
+      const group = await store.createGroup({
+        name: name.trim(),
+        homeCurrency: currency,
+        currencies,
+      });
+      router.push(`/g/${group.shareCode}`);
+    } catch {
+      setError("Could not create the group. Please try again.");
+      setBusy(false);
+    }
+  }
+
+  async function joinGroup(e: React.FormEvent) {
+    e.preventDefault();
+    const c = code.trim().toUpperCase();
+    if (!c) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const store = await getStore();
+      const bundle = await store.getGroupByCode(c);
+      if (!bundle) {
+        setError("No group found with that code.");
+        setBusy(false);
+        return;
+      }
+      router.push(`/g/${c}`);
+    } catch {
+      setError("Could not open that group. Please try again.");
+      setBusy(false);
+    }
+  }
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+    <main className="flex min-h-screen flex-col px-5 py-10">
+      <div className="mb-8">
+        <div className="mb-3 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-brand text-2xl">
+          💸
+        </div>
+        <h1 className="text-2xl font-bold">IOU</h1>
+        <p className="mt-1 text-sm text-muted">
+          Split shared costs across currencies — with tax, discounts and easy
+          settle-up.
+        </p>
+      </div>
+
+      {recents.length > 0 && (
+        <div className="mb-5">
+          <h2 className="mb-2 text-sm font-semibold text-muted">Your groups</h2>
+          <div className="card divide-y divide-border">
+            {recents.map((g) =>
+              confirmingCode === g.code ? (
+                <div key={g.code} className="space-y-2 px-4 py-3">
+                  <p className="text-xs text-muted">
+                    Type <span className="font-semibold">delete</span> to
+                    permanently delete “{g.name}” for everyone. This can&apos;t
+                    be undone.
+                  </p>
+                  <div className="flex gap-2">
+                    <input
+                      className="input flex-1"
+                      placeholder="delete"
+                      autoFocus
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                      value={confirmText}
+                      onChange={(e) => setConfirmText(e.target.value)}
+                    />
+                    <button
+                      className="inline-flex items-center justify-center rounded-xl bg-negative px-3 py-2 text-sm font-semibold text-white disabled:opacity-40"
+                      disabled={
+                        deleting ||
+                        confirmText.trim().toLowerCase() !== "delete"
+                      }
+                      onClick={() => confirmDelete(g.code)}
+                    >
+                      Delete
+                    </button>
+                    <button
+                      className="btn-ghost px-3 py-2 text-sm"
+                      onClick={() => setConfirmingCode(null)}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div key={g.code} className="flex items-center">
+                  <button
+                    onClick={() => router.push(`/g/${g.code}`)}
+                    className="flex flex-1 items-center gap-3 px-4 py-3 text-left"
+                  >
+                    <div className="flex-1">
+                      <div className="font-medium">{g.name}</div>
+                      <div className="text-xs text-muted">
+                        {g.code} · {g.homeCurrency}
+                      </div>
+                    </div>
+                    <span className="text-muted">›</span>
+                  </button>
+                  <button
+                    onClick={() => startDelete(g.code)}
+                    className="btn-ghost mr-2 h-8 w-8 rounded-full !px-0 text-muted hover:text-negative"
+                    aria-label={`Delete ${g.name}`}
+                    title="Delete group"
+                  >
+                    🗑
+                  </button>
+                </div>
+              ),
+            )}
+          </div>
+        </div>
+      )}
+
+      <form onSubmit={createGroup} className="card mb-5 space-y-4 p-5">
+        <h2 className="text-base font-semibold">Create a group</h2>
+        <div>
+          <label className="label">Group name</label>
+          <input
+            className="input"
+            placeholder="e.g. Japan trip 2026"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+        </div>
+        <div>
+          <label className="label">Home currency (for settle-up)</label>
+          <select
+            className="input"
+            value={currency}
+            onChange={(e) => changeHome(e.target.value)}
+          >
+            {CURRENCIES.map((c) => (
+              <option key={c.code} value={c.code}>
+                {c.code} — {c.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="label">
+            Currencies you&apos;ll use (add each country&apos;s currency)
+          </label>
+          <CurrencyList
+            home={currency}
+            value={currencies}
+            onChange={setCurrencies}
+          />
+        </div>
+        <button className="btn-brand w-full" disabled={busy || !name.trim()}>
+          Create group
+        </button>
+      </form>
+
+      <form onSubmit={joinGroup} className="card space-y-4 p-5">
+        <h2 className="text-base font-semibold">Join with a code</h2>
+        <input
+          className="input uppercase tracking-[0.3em]"
+          placeholder="ABC123"
+          maxLength={6}
+          value={code}
+          onChange={(e) => setCode(e.target.value.toUpperCase())}
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+        <button className="btn-outline w-full" disabled={busy || !code.trim()}>
+          Open group
+        </button>
+      </form>
+
+      {error && <p className="mt-4 text-sm text-negative">{error}</p>}
+
+      <button
+        onClick={restoreGroups}
+        className="mt-4 text-center text-xs text-muted underline hover:text-foreground"
+      >
+        Restore groups saved on this device
+      </button>
+
+      <p className="mt-auto pt-8 text-center text-xs text-muted">
+        {isCloudEnabled()
+          ? "Cloud sync on — share the code with your group."
+          : "Single-device mode. Add Supabase keys to share across devices."}
+      </p>
+    </main>
   );
 }

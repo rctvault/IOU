@@ -1,0 +1,10 @@
+{
+  "name": "IOU — shared cost tracker",
+  "short_name": "IOU",
+  "description": "Split shared costs across currencies with tax, discounts and settle-up.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f4f5f7",
+  "theme_color": "#4f46e5",
+  "icons": []
+}

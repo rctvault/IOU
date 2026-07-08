@@ -1,26 +1,60 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f4f5f7;
+  --surface: #ffffff;
+  --foreground: #14161a;
+  --muted: #6b7280;
+  --border: #e5e7eb;
+  --brand: #4f46e5;
+  --brand-fg: #ffffff;
+  --positive: #059669;
+  --negative: #dc2626;
 }
 
 @theme inline {
   --color-background: var(--background);
+  --color-surface: var(--surface);
   --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-brand: var(--brand);
+  --color-positive: var(--positive);
+  --color-negative: var(--negative);
   --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+/* Reusable primitives kept small; most styling is utility classes in components. */
+@layer components {
+  .card {
+    @apply rounded-2xl bg-surface border border-border shadow-sm;
+  }
+  .btn-brand {
+    @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl
+      bg-brand px-4 py-2.5 text-sm font-semibold text-white transition
+      hover:opacity-90 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50;
+  }
+  .btn-ghost {
+    @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl
+      bg-transparent px-4 py-2.5 text-sm font-semibold text-foreground transition
+      hover:bg-black/5 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50;
+  }
+  .btn-outline {
+    @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl
+      border border-border bg-surface px-4 py-2.5 text-sm font-semibold transition
+      hover:bg-black/5 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50;
+  }
+  .input {
+    @apply w-full rounded-xl border border-border bg-surface px-3.5 py-2.5 text-sm
+      outline-none focus:border-brand focus:ring-2 focus:ring-brand/20;
+  }
+  .label {
+    @apply mb-1.5 block text-xs font-medium text-muted;
+  }
 }
