@@ -112,7 +112,7 @@ export default function Home() {
       <div className="mb-8">
         <div className="mb-3 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-brand">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.png" alt="Tallio" className="h-8 w-8" />
+          <img src="/logo.png" alt="Tallio" className="h-8 w-8 translate-y-[2px]" />
         </div>
         <h1 className="text-2xl font-bold">Tallio</h1>
         <p className="mt-1 text-sm text-muted">
