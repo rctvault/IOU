@@ -115,10 +115,7 @@ export default function Home() {
           <img src="/logo.png" alt="Tallio" className="h-8 w-8 translate-y-[2px]" />
         </div>
         <h1 className="text-2xl font-bold">Tallio</h1>
-        <p className="mt-1 text-sm text-muted">
-          Split shared costs across currencies — with tax, discounts and easy
-          settle-up.
-        </p>
+        <p className="mt-1 text-sm text-muted">One split. Every currency. No math.</p>
       </div>
 
       {recents.length > 0 && (
