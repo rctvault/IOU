@@ -39,6 +39,11 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${geistSans.variable} h-full antialiased`}>
       <body className="min-h-full">
+        {/* Full-screen launch splash: fades away on load to reveal the app. */}
+        <div className="splash" aria-hidden="true">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.png" alt="" />
+        </div>
         <div className="mx-auto min-h-full w-full max-w-md bg-background">
           {children}
         </div>

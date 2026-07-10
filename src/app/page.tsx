@@ -108,25 +108,18 @@ export default function Home() {
   }
 
   return (
-    <main className="flex min-h-screen flex-col pb-[calc(env(safe-area-inset-bottom)+2.5rem)]">
-      {/* Splash hero */}
-      <div
-        className="px-5 pt-[calc(env(safe-area-inset-top)+3.25rem)] pb-9 text-center text-white"
-        style={{
-          background:
-            "linear-gradient(165deg, #1c5462 0%, #11363e 58%, #0d2a31 100%)",
-        }}
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/logo.png" alt="Tallio" className="mx-auto h-20 w-20" />
-        <h1 className="mt-2 text-3xl font-bold">Tallio</h1>
-        <p className="mx-auto mt-1.5 max-w-xs text-sm text-white/80">
+    <main className="flex min-h-screen flex-col px-5 pt-[calc(env(safe-area-inset-top)+2.5rem)] pb-[calc(env(safe-area-inset-bottom)+2.5rem)]">
+      <div className="mb-8">
+        <div className="mb-3 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-brand">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.png" alt="Tallio" className="h-8 w-8 translate-y-[2px]" />
+        </div>
+        <h1 className="text-2xl font-bold">Tallio</h1>
+        <p className="mt-1 text-sm text-muted">
           Split shared costs across currencies — with tax, discounts and easy
           settle-up.
         </p>
       </div>
-
-      <div className="flex flex-1 flex-col px-5 pt-6">
 
       {recents.length > 0 && (
         <div className="mb-5">
@@ -260,12 +253,11 @@ export default function Home() {
         Restore groups saved on this device
       </button>
 
-        <p className="mt-auto pt-8 text-center text-xs text-muted">
-          {isCloudEnabled()
-            ? "Cloud sync on — share the code with your group."
-            : "Single-device mode. Add Supabase keys to share across devices."}
-        </p>
-      </div>
+      <p className="mt-auto pt-8 text-center text-xs text-muted">
+        {isCloudEnabled()
+          ? "Cloud sync on — share the code with your group."
+          : "Single-device mode. Add Supabase keys to share across devices."}
+      </p>
     </main>
   );
 }

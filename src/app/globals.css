@@ -63,6 +63,49 @@ body {
   transform: translateY(0);
 }
 
+/* Launch splash: full-screen logo that pops in and fades away on load. */
+@keyframes splashFade {
+  0%,
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+@keyframes splashPop {
+  0% {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.splash {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(165deg, #1c5462 0%, #11363e 58%, #0d2a31 100%);
+  pointer-events: none;
+  animation: splashFade 950ms ease forwards;
+}
+.splash img {
+  width: 116px;
+  height: 116px;
+  animation: splashPop 450ms ease both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .splash {
+    display: none;
+  }
+}
+
 /* Reusable primitives kept small; most styling is utility classes in components. */
 @layer components {
   .card {
