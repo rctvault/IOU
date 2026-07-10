@@ -1,6 +1,6 @@
 {
-  "name": "IOU — shared cost tracker",
-  "short_name": "IOU",
+  "name": "Tallio — shared cost tracker",
+  "short_name": "Tallio",
   "description": "Split shared costs across currencies with tax, discounts and settle-up.",
   "start_url": "/",
   "display": "standalone",

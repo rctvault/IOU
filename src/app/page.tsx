@@ -113,7 +113,7 @@ export default function Home() {
         <div className="mb-3 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-brand text-2xl">
           💸
         </div>
-        <h1 className="text-2xl font-bold">IOU</h1>
+        <h1 className="text-2xl font-bold">Tallio</h1>
         <p className="mt-1 text-sm text-muted">
           Split shared costs across currencies — with tax, discounts and easy
           settle-up.

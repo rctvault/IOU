@@ -1,4 +1,4 @@
-# IOU — shared cost tracker
+# Tallio — shared cost tracker
 
 A mobile-first web app for splitting shared expenses in a small group (family /
 close friends), across multiple currencies, with proportional tax, per-person

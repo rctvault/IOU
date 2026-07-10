@@ -8,11 +8,11 @@ const geistSans = Geist({
 });
 
 export const metadata: Metadata = {
-  title: "IOU — shared cost tracker",
+  title: "Tallio — shared cost tracker",
   description:
     "Track shared expenses across currencies, split bills with tax and discounts, and settle up.",
   manifest: "/manifest.webmanifest",
-  appleWebApp: { capable: true, title: "IOU", statusBarStyle: "default" },
+  appleWebApp: { capable: true, title: "Tallio", statusBarStyle: "default" },
 };
 
 export const viewport: Viewport = {
