@@ -150,7 +150,13 @@ export default function GroupApp({ code }: { code: string }) {
   return (
     <div className="flex min-h-screen flex-col pb-28">
       {/* Header */}
-      <header className="bg-brand px-5 pb-5 pt-[calc(env(safe-area-inset-top)+1.5rem)] text-white">
+      <header
+        className="px-5 pb-5 pt-[calc(env(safe-area-inset-top)+1.5rem)] text-white"
+        style={{
+          background:
+            "linear-gradient(165deg, #1c5462 0%, #11363e 58%, #0d2a31 100%)",
+        }}
+      >
         <div className="flex items-start justify-between">
           <div>
             <Link href="/" className="text-xs text-white/70">
