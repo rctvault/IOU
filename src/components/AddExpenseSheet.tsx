@@ -28,11 +28,13 @@ function num(v: string): number {
 export function AddExpenseSheet({
   bundle,
   editing,
+  me,
   onClose,
   onSaved,
 }: {
   bundle: GroupBundle;
   editing: ExpenseRecord | null;
+  me?: string | null;
   onClose: () => void;
   onSaved: () => Promise<void> | void;
 }) {
@@ -51,7 +53,9 @@ export function AddExpenseSheet({
   const [label, setLabel] = useState(editing?.label ?? "");
   const [date, setDate] = useState(editing?.date ?? todayISO());
   const [payerId, setPayerId] = useState(
-    editing?.payerMemberId ?? members[0]?.id ?? "",
+    editing?.payerMemberId ??
+      (me && members.some((m) => m.id === me) ? me : members[0]?.id) ??
+      "",
   );
   const [currency, setCurrency] = useState(editing?.currency ?? home);
   // Currencies offered in the picker: the group's trip currencies, plus this

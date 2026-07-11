@@ -73,6 +73,7 @@ export function SettleUpSheet({
   bundle,
   balances,
   transfers,
+  me,
   canArchive,
   onClose,
   onSettled,
@@ -81,6 +82,7 @@ export function SettleUpSheet({
   bundle: GroupBundle;
   balances: Balance[];
   transfers: Transfer[];
+  me?: string | null;
   canArchive: boolean;
   onClose: () => void;
   onSettled: () => Promise<void> | void;
@@ -88,7 +90,8 @@ export function SettleUpSheet({
 }) {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [archiving, setArchiving] = useState(false);
-  const [expanded, setExpanded] = useState<string | null>(null);
+  // Default the expanded breakdown to "you", if set.
+  const [expanded, setExpanded] = useState<string | null>(me ?? null);
   const home = bundle.group.homeCurrency;
   const { members } = bundle;
 
@@ -119,15 +122,23 @@ export function SettleUpSheet({
             const bal = balances.find((b) => b.memberId === m.id)?.amount ?? 0;
             const settled = Math.abs(bal) < 0.005;
             const open = expanded === m.id;
+            const isMe = m.id === me;
             const lines = open ? buildStatement(m.id, bundle, home) : [];
             return (
-              <div key={m.id}>
+              <div key={m.id} className={isMe ? "bg-brand/5" : ""}>
                 <button
                   onClick={() => setExpanded(open ? null : m.id)}
                   className="flex w-full items-center gap-3 px-4 py-3 text-left"
                 >
                   <Avatar name={m.name} color={m.color} size={30} />
-                  <span className="flex-1 font-medium">{m.name}</span>
+                  <span className="flex flex-1 items-center gap-1.5 font-medium">
+                    {m.name}
+                    {isMe && (
+                      <span className="rounded-full bg-brand/10 px-1.5 py-0.5 text-xs font-semibold text-brand">
+                        you
+                      </span>
+                    )}
+                  </span>
                   <span
                     className={
                       settled
@@ -138,10 +149,12 @@ export function SettleUpSheet({
                     }
                   >
                     {settled
-                      ? "settled up"
+                      ? isMe
+                        ? "you're settled up"
+                        : "settled up"
                       : bal > 0
-                        ? `gets back ${formatMoney(bal, home)}`
-                        : `owes ${formatMoney(-bal, home)}`}
+                        ? `${isMe ? "you're owed" : "gets back"} ${formatMoney(bal, home)}`
+                        : `${isMe ? "you owe" : "owes"} ${formatMoney(-bal, home)}`}
                   </span>
                   <span className="text-xs text-muted">{open ? "▲" : "▼"}</span>
                 </button>
@@ -239,17 +252,23 @@ export function SettleUpSheet({
             const id = `${t.fromMemberId}-${t.toMemberId}`;
             const from = members.find((m) => m.id === t.fromMemberId);
             const to = members.find((m) => m.id === t.toMemberId);
+            const fromLabel =
+              t.fromMemberId === me ? "You" : memberName(members, t.fromMemberId);
+            const toLabel =
+              t.toMemberId === me ? "you" : memberName(members, t.toMemberId);
+            const mine = t.fromMemberId === me || t.toMemberId === me;
             return (
-              <div key={id} className="card flex items-center gap-3 p-4">
+              <div
+                key={id}
+                className={`card flex items-center gap-3 p-4 ${
+                  mine ? "ring-1 ring-brand/40" : ""
+                }`}
+              >
                 {from && <Avatar name={from.name} color={from.color} size={30} />}
                 <div className="flex-1 text-sm">
-                  <span className="font-semibold">
-                    {memberName(members, t.fromMemberId)}
-                  </span>{" "}
-                  pays{" "}
-                  <span className="font-semibold">
-                    {memberName(members, t.toMemberId)}
-                  </span>
+                  <span className="font-semibold">{fromLabel}</span>{" "}
+                  {t.fromMemberId === me ? "pay" : "pays"}{" "}
+                  <span className="font-semibold">{toLabel}</span>
                   <div className="text-base font-bold">
                     {formatMoney(t.amount, home)}
                   </div>

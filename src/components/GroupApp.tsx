@@ -10,6 +10,7 @@ import {
   memberName,
 } from "@/lib/format";
 import { copyToClipboard } from "@/lib/clipboard";
+import { clearMe, getMe, setMe } from "@/lib/me";
 import { forgetGroup, rememberGroup } from "@/lib/recent-groups";
 import { getStore } from "@/lib/store";
 import {
@@ -49,6 +50,8 @@ export default function GroupApp({ code }: { code: string }) {
   const [sheet, setSheet] = useState<SheetName>(null);
   const [editing, setEditing] = useState<ExpenseRecord | null>(null);
   const [copied, setCopied] = useState(false);
+  const [me, setMeState] = useState<string | null>(null);
+  const [pickingMe, setPickingMe] = useState(false);
 
   const load = useCallback(async () => {
     const store = await getStore();
@@ -83,6 +86,28 @@ export default function GroupApp({ code }: { code: string }) {
       unsub();
     };
   }, [groupId, load]);
+
+  // Load "this is me" for this group (device-local), clearing it if that member
+  // no longer exists.
+  useEffect(() => {
+    if (!bundle) return;
+    const gid = bundle.group.id;
+    const saved = getMe(gid);
+    if (saved && !bundle.members.some((m) => m.id === saved)) {
+      clearMe(gid);
+      setMeState(null);
+    } else {
+      setMeState(saved);
+    }
+  }, [bundle]);
+
+  function chooseMe(memberId: string | null) {
+    if (!groupId) return;
+    if (memberId) setMe(groupId, memberId);
+    else clearMe(groupId);
+    setMeState(memberId);
+    setPickingMe(false);
+  }
 
   const home = bundle?.group.homeCurrency ?? "USD";
   const memberIds = useMemo(
@@ -189,7 +214,12 @@ export default function GroupApp({ code }: { code: string }) {
             <>
               <div className="flex -space-x-2">
                 {members.slice(0, 6).map((m) => (
-                  <span key={m.id} className="ring-2 ring-brand rounded-full">
+                  <span
+                    key={m.id}
+                    className={`rounded-full ring-2 ${
+                      m.id === me ? "ring-white" : "ring-brand"
+                    }`}
+                  >
                     <Avatar name={m.name} color={m.color} size={30} />
                   </span>
                 ))}
@@ -203,6 +233,49 @@ export default function GroupApp({ code }: { code: string }) {
       </header>
 
       <main className="space-y-5 px-5 py-5">
+        {members.length > 0 &&
+          (me && !pickingMe ? (
+            <button
+              onClick={() => setPickingMe(true)}
+              className="text-xs text-muted"
+            >
+              You:{" "}
+              <span className="font-semibold text-foreground">
+                {memberName(members, me)}
+              </span>{" "}
+              ▾
+            </button>
+          ) : (
+            <div className="card p-3">
+              <div className="mb-2 text-xs font-medium text-muted">
+                Which one are you?
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {members.map((m) => (
+                  <button
+                    key={m.id}
+                    onClick={() => chooseMe(m.id)}
+                    className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm ${
+                      me === m.id
+                        ? "border-brand bg-brand/10 font-semibold text-brand"
+                        : "border-border"
+                    }`}
+                  >
+                    <Avatar name={m.name} color={m.color} size={20} />
+                    {m.name}
+                  </button>
+                ))}
+                {me && (
+                  <button
+                    onClick={() => setPickingMe(false)}
+                    className="rounded-full px-3 py-1.5 text-sm text-muted"
+                  >
+                    Cancel
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
         {members.length === 0 ? (
           <EmptyState
             title="Add your group first"
@@ -315,6 +388,7 @@ export default function GroupApp({ code }: { code: string }) {
         <AddExpenseSheet
           bundle={bundle}
           editing={editing}
+          me={me}
           onClose={() => setSheet(null)}
           onSaved={async () => {
             setSheet(null);
@@ -327,6 +401,7 @@ export default function GroupApp({ code }: { code: string }) {
           bundle={bundle}
           balances={balances}
           transfers={transfers}
+          me={me}
           canArchive={allSettled}
           onClose={() => setSheet(null)}
           onSettled={async () => {
