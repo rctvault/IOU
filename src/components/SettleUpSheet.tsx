@@ -3,10 +3,71 @@
 import { useState } from "react";
 import { formatMoney, memberName, todayISO } from "@/lib/format";
 import { getStore } from "@/lib/store";
-import type { Balance, Transfer } from "@/lib/split";
-import type { GroupBundle } from "@/lib/types";
+import { computeExpenseBreakdown, type Balance, type Transfer } from "@/lib/split";
+import { groupRateFor, type GroupBundle } from "@/lib/types";
 import { FxRatesEditor } from "./FxRatesEditor";
 import { Avatar, Sheet } from "./ui";
+
+interface StatementLine {
+  label: string;
+  detail: string;
+  amount: number; // in home currency; + = owed to them, − = they owe
+}
+
+/** Explain a member's balance: their share of each expense + settlements. */
+function buildStatement(
+  memberId: string,
+  bundle: GroupBundle,
+  home: string,
+): StatementLine[] {
+  const { group, members, expenses, settlements } = bundle;
+  const nameFor = (id: string) =>
+    members.find((m) => m.id === id)?.name ?? "—";
+  const lines: StatementLine[] = [];
+
+  for (const e of expenses) {
+    if (e.archivedAt || e.deletedAt) continue;
+    const rate = groupRateFor(group, e.currency, e.fxRateToHome);
+    const bd = computeExpenseBreakdown(e, home, rate);
+    if (e.payerMemberId === memberId) {
+      const owedToYou = bd.shares.reduce(
+        (s, sh) => (sh.memberId === memberId ? s : s + sh.owedHome),
+        0,
+      );
+      if (Math.abs(owedToYou) >= 0.005)
+        lines.push({
+          label: e.label || "Expense",
+          detail: "you paid · others owe you",
+          amount: owedToYou,
+        });
+    } else {
+      const share = bd.shares.find((sh) => sh.memberId === memberId);
+      if (share && Math.abs(share.owedHome) >= 0.005)
+        lines.push({
+          label: e.label || "Expense",
+          detail: `${nameFor(e.payerMemberId)} paid · your share`,
+          amount: -share.owedHome,
+        });
+    }
+  }
+
+  for (const s of settlements) {
+    if (s.archivedAt) continue;
+    if (s.fromMemberId === memberId)
+      lines.push({
+        label: `You paid ${nameFor(s.toMemberId)}`,
+        detail: "settlement",
+        amount: s.amount,
+      });
+    else if (s.toMemberId === memberId)
+      lines.push({
+        label: `${nameFor(s.fromMemberId)} paid you`,
+        detail: "settlement",
+        amount: -s.amount,
+      });
+  }
+  return lines;
+}
 
 export function SettleUpSheet({
   bundle,
@@ -27,8 +88,12 @@ export function SettleUpSheet({
 }) {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [archiving, setArchiving] = useState(false);
+  const [expanded, setExpanded] = useState<string | null>(null);
   const home = bundle.group.homeCurrency;
   const { members } = bundle;
+
+  const signed = (n: number) =>
+    `${n >= 0 ? "+" : "−"}${formatMoney(Math.abs(n), home)}`;
 
   async function markPaid(t: Transfer) {
     const id = `${t.fromMemberId}-${t.toMemberId}`;
@@ -53,25 +118,75 @@ export function SettleUpSheet({
           {members.map((m) => {
             const bal = balances.find((b) => b.memberId === m.id)?.amount ?? 0;
             const settled = Math.abs(bal) < 0.005;
+            const open = expanded === m.id;
+            const lines = open ? buildStatement(m.id, bundle, home) : [];
             return (
-              <div key={m.id} className="flex items-center gap-3 px-4 py-3">
-                <Avatar name={m.name} color={m.color} size={30} />
-                <span className="flex-1 font-medium">{m.name}</span>
-                <span
-                  className={
-                    settled
-                      ? "text-sm text-muted"
-                      : bal > 0
-                        ? "font-semibold text-positive"
-                        : "font-semibold text-negative"
-                  }
+              <div key={m.id}>
+                <button
+                  onClick={() => setExpanded(open ? null : m.id)}
+                  className="flex w-full items-center gap-3 px-4 py-3 text-left"
                 >
-                  {settled
-                    ? "settled up"
-                    : bal > 0
-                      ? `gets back ${formatMoney(bal, home)}`
-                      : `owes ${formatMoney(-bal, home)}`}
-                </span>
+                  <Avatar name={m.name} color={m.color} size={30} />
+                  <span className="flex-1 font-medium">{m.name}</span>
+                  <span
+                    className={
+                      settled
+                        ? "text-sm text-muted"
+                        : bal > 0
+                          ? "font-semibold text-positive"
+                          : "font-semibold text-negative"
+                    }
+                  >
+                    {settled
+                      ? "settled up"
+                      : bal > 0
+                        ? `gets back ${formatMoney(bal, home)}`
+                        : `owes ${formatMoney(-bal, home)}`}
+                  </span>
+                  <span className="text-xs text-muted">{open ? "▲" : "▼"}</span>
+                </button>
+                {open && (
+                  <div className="space-y-1.5 bg-black/[0.02] px-4 pb-3 pt-1">
+                    {lines.length === 0 ? (
+                      <p className="text-xs text-muted">
+                        Nothing to break down yet.
+                      </p>
+                    ) : (
+                      lines.map((l, i) => (
+                        <div
+                          key={i}
+                          className="flex items-start justify-between gap-3 text-sm"
+                        >
+                          <div className="min-w-0">
+                            <div className="truncate">{l.label}</div>
+                            <div className="text-xs text-muted">{l.detail}</div>
+                          </div>
+                          <span
+                            className={
+                              l.amount >= 0 ? "text-positive" : "text-negative"
+                            }
+                          >
+                            {signed(l.amount)}
+                          </span>
+                        </div>
+                      ))
+                    )}
+                    <div className="flex justify-between border-t border-border pt-1.5 text-sm font-semibold">
+                      <span>Net</span>
+                      <span
+                        className={
+                          settled
+                            ? "text-muted"
+                            : bal > 0
+                              ? "text-positive"
+                              : "text-negative"
+                        }
+                      >
+                        {settled ? formatMoney(0, home) : signed(bal)}
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })}
