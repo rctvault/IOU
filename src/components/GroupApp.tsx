@@ -50,7 +50,7 @@ export default function GroupApp({ code }: { code: string }) {
   const [sheet, setSheet] = useState<SheetName>(null);
   const [editing, setEditing] = useState<ExpenseRecord | null>(null);
   const [copied, setCopied] = useState(false);
-  const [me, setMeState] = useState<string | null>(null);
+  const [meId, setMeState] = useState<string | null>(null);
   const [pickingMe, setPickingMe] = useState(false);
 
   const load = useCallback(async () => {
@@ -87,19 +87,11 @@ export default function GroupApp({ code }: { code: string }) {
     };
   }, [groupId, load]);
 
-  // Load "this is me" for this group (device-local), clearing it if that member
-  // no longer exists.
+  // Load "this is me" for this group (device-local) once the group is known.
   useEffect(() => {
-    if (!bundle) return;
-    const gid = bundle.group.id;
-    const saved = getMe(gid);
-    if (saved && !bundle.members.some((m) => m.id === saved)) {
-      clearMe(gid);
-      setMeState(null);
-    } else {
-      setMeState(saved);
-    }
-  }, [bundle]);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (groupId) setMeState(getMe(groupId));
+  }, [groupId]);
 
   function chooseMe(memberId: string | null) {
     if (!groupId) return;
@@ -148,6 +140,8 @@ export default function GroupApp({ code }: { code: string }) {
   }
 
   const { group, members } = bundle;
+  // "This is me", ignored if that member no longer exists.
+  const me = meId && members.some((m) => m.id === meId) ? meId : null;
   const live = bundle.expenses.filter((e) => !e.deletedAt); // not trashed
   const expenses = live.filter((e) => !e.archivedAt); // active view
   const archivedCount = live.length - expenses.length;
