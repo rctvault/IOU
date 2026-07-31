@@ -27,14 +27,28 @@ export function GroupSettingsSheet({
   );
   const [busy, setBusy] = useState(false);
   const [confirmText, setConfirmText] = useState("");
+  const [delError, setDelError] = useState<string | null>(null);
   const canDelete = confirmText.trim().toLowerCase() === "delete";
 
   async function deleteGroup() {
     if (!canDelete) return;
     setBusy(true);
-    const store = await getStore();
-    await store.deleteGroup(group.id);
-    onDeleted();
+    setDelError(null);
+    try {
+      const store = await getStore();
+      await store.deleteGroup(group.id);
+      onDeleted();
+    } catch (err) {
+      console.error("delete group failed:", err);
+      const msg =
+        err instanceof Error
+          ? err.message
+          : err && typeof err === "object" && "message" in err
+            ? String((err as { message?: unknown }).message)
+            : "";
+      setDelError(msg ? `Couldn't delete: ${msg}` : "Couldn't delete. Try again.");
+      setBusy(false);
+    }
   }
 
   function changeHome(next: string) {
@@ -124,6 +138,9 @@ export function GroupSettingsSheet({
           >
             Delete this group
           </button>
+          {delError && (
+            <p className="mt-2 text-xs text-negative">{delError}</p>
+          )}
         </div>
       </div>
     </Sheet>
