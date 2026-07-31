@@ -49,22 +49,11 @@ export default function Home() {
     setError(null);
     try {
       const store = await getStore();
-      let dbId: string | undefined;
-      try {
-        const bundle = await store.getGroupByCode(groupCode);
-        // Already gone from the backend — just drop the shortcut.
-        if (!bundle) {
-          forgetGroup(groupCode);
-          setRecents(listRecentGroups());
-          setConfirmingCode(null);
-          return;
-        }
-        dbId = bundle.group.id;
-      } catch {
-        // Loading the group failed (network/mapping) but the code is valid; the
-        // cloud store still recorded the active code, so the delete can run.
-      }
-      await store.deleteGroup(dbId ?? "");
+      // Load by code first: this makes THIS group's code the active one, so the
+      // delete can't misfire on a stale code from an earlier group.
+      const bundle = await store.getGroupByCode(groupCode);
+      // Already gone from the backend — just drop the shortcut.
+      if (bundle) await store.deleteGroup(bundle.group.id);
       forgetGroup(groupCode);
       setRecents(listRecentGroups());
       setConfirmingCode(null);

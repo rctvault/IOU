@@ -36,7 +36,15 @@ export function GroupSettingsSheet({
     setDelError(null);
     try {
       const store = await getStore();
-      await store.deleteGroup(group.id);
+      // Re-establish this group's code as the active one right before deleting,
+      // so a stale active code from an earlier group can't misfire the delete.
+      const bundle = await store.getGroupByCode(group.shareCode);
+      if (!bundle) {
+        // Already gone from the backend.
+        onDeleted();
+        return;
+      }
+      await store.deleteGroup(bundle.group.id);
       onDeleted();
     } catch (err) {
       console.error("delete group failed:", err);
