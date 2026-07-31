@@ -46,15 +46,42 @@ export default function Home() {
   async function confirmDelete(groupCode: string) {
     if (confirmText.trim().toLowerCase() !== "delete") return;
     setDeleting(true);
+    setError(null);
     try {
       const store = await getStore();
-      const bundle = await store.getGroupByCode(groupCode);
-      if (bundle) await store.deleteGroup(bundle.group.id);
+      let dbId: string | undefined;
+      try {
+        const bundle = await store.getGroupByCode(groupCode);
+        // Already gone from the backend — just drop the shortcut.
+        if (!bundle) {
+          forgetGroup(groupCode);
+          setRecents(listRecentGroups());
+          setConfirmingCode(null);
+          return;
+        }
+        dbId = bundle.group.id;
+      } catch {
+        // Loading the group failed (network/mapping) but the code is valid; the
+        // cloud store still recorded the active code, so the delete can run.
+      }
+      await store.deleteGroup(dbId ?? "");
       forgetGroup(groupCode);
       setRecents(listRecentGroups());
       setConfirmingCode(null);
-    } catch {
-      setError("Could not delete that group. Please try again.");
+    } catch (err) {
+      console.error("delete group failed:", err);
+      // Supabase throws plain error objects, not Error instances.
+      const msg =
+        err instanceof Error
+          ? err.message
+          : err && typeof err === "object" && "message" in err
+            ? String((err as { message?: unknown }).message)
+            : "";
+      setError(
+        msg
+          ? `Couldn't delete: ${msg}`
+          : "Could not delete that group. Please try again.",
+      );
     } finally {
       setDeleting(false);
     }
