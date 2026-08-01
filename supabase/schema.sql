@@ -173,14 +173,20 @@ end;
 $$;
 
 -- Permanently delete a whole group and everything in it (FK cascade).
+-- NOTE: resolve the id into a variable FIRST. Calling app_group_id() inline in
+-- the DELETE's WHERE clause makes its internal SELECT on `groups` come back
+-- empty (RLS re-entrancy while the same table is being deleted from), so it
+-- wrongly raises 'group not found'. archive_settled uses this same up-front
+-- pattern, which is why it works and the old inline delete_group did not.
 create or replace function delete_group(p_code text)
 returns void
 language plpgsql
 security definer
 set search_path = public
 as $$
+declare v_gid uuid := app_group_id(p_code);
 begin
-  delete from groups where id = app_group_id(p_code);
+  delete from groups where id = v_gid;
 end;
 $$;
 
