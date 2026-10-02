@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { initials, readableTextOn } from "@/lib/format";
 
 export function Avatar({
@@ -35,9 +36,12 @@ export function Sheet({
   title,
   children,
   footer,
+  beforeClose,
 }: {
   open: boolean;
   onClose: () => void;
+  /** Called on ×, backdrop tap and Escape; return false to keep the sheet open. */
+  beforeClose?: () => boolean;
   title: string;
   children: React.ReactNode;
   footer?: React.ReactNode;
@@ -52,9 +56,10 @@ export function Sheet({
 
   // Animate out, then unmount via the parent's onClose.
   const handleClose = useCallback(() => {
+    if (beforeClose && !beforeClose()) return;
     setShow(false);
     setTimeout(onClose, 300);
-  }, [onClose]);
+  }, [onClose, beforeClose]);
 
   useEffect(() => {
     if (!open) return;
@@ -101,5 +106,70 @@ export function Sheet({
         )}
       </div>
     </div>
+  );
+}
+
+/**
+ * Warning shown when a sheet is closed with unsaved input. Portalled to the
+ * body because the sheet panel is transformed, which would otherwise trap a
+ * fixed overlay inside it.
+ */
+export function UnsavedDialog({
+  title,
+  message,
+  saveLabel,
+  canSave,
+  busy,
+  onSave,
+  onKeepEditing,
+  onDiscard,
+}: {
+  title: string;
+  message: string;
+  saveLabel: string;
+  canSave: boolean;
+  busy: boolean;
+  onSave: () => void;
+  onKeepEditing: () => void;
+  onDiscard: () => void;
+}) {
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 px-6"
+      role="alertdialog"
+      aria-modal="true"
+      aria-labelledby="unsaved-title"
+    >
+      <div className="w-full max-w-sm rounded-3xl bg-background p-5 shadow-2xl">
+        <h3 id="unsaved-title" className="text-base font-bold">
+          {title}
+        </h3>
+        <p className="mt-1 text-sm text-muted">{message}</p>
+        <div className="mt-4 space-y-2">
+          <button
+            className="btn-brand w-full"
+            disabled={busy || !canSave}
+            onClick={onSave}
+          >
+            {saveLabel}
+          </button>
+          <button
+            className="btn-outline w-full"
+            disabled={busy}
+            onClick={onKeepEditing}
+          >
+            Keep editing
+          </button>
+          <button
+            className="btn-ghost w-full text-negative"
+            disabled={busy}
+            onClick={onDiscard}
+          >
+            Discard
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body,
   );
 }

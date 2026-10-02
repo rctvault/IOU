@@ -4,15 +4,17 @@ import { useState } from "react";
 import { MEMBER_COLORS, nextColor } from "@/lib/ids";
 import { getStore } from "@/lib/store";
 import { isActive, type GroupBundle } from "@/lib/types";
-import { Avatar, Sheet } from "./ui";
+import { Avatar } from "./ui";
 
-export function MembersSheet({
+/**
+ * The Members part of group settings: add, rename, mark as left, or remove
+ * people. Every change saves immediately.
+ */
+export function MembersSection({
   bundle,
-  onClose,
   onChanged,
 }: {
   bundle: GroupBundle;
-  onClose: () => void;
   onChanged: () => Promise<void> | void;
 }) {
   const [name, setName] = useState("");
@@ -73,7 +75,7 @@ export function MembersSheet({
   }
 
   return (
-    <Sheet open title="Members" onClose={onClose}>
+    <div>
       <div className="space-y-2">
         {members.map((m) => {
           const active = isActive(m);
@@ -112,7 +114,7 @@ export function MembersSheet({
         )}
       </div>
 
-      <form onSubmit={add} className="mt-5 flex gap-2">
+      <form onSubmit={add} className="mt-3 flex gap-2">
         <input
           className="input flex-1"
           placeholder="Add a person…"
@@ -128,17 +130,17 @@ export function MembersSheet({
         <button
           onClick={refreshColors}
           disabled={busy}
-          className="btn-ghost mt-4 w-full text-sm text-muted"
+          className="btn-ghost mt-2 w-full text-sm text-muted"
         >
           Refresh avatar colors
         </button>
       )}
 
-      <p className="mt-4 text-xs text-muted">
+      <p className="mt-2 text-xs text-muted">
         “Left?” marks someone who has left the trip — they&apos;re kept out of new
         expenses but stay in past ones and balances. “Remove” deletes them
         entirely (past expenses are unaffected).
       </p>
-    </Sheet>
+    </div>
   );
 }

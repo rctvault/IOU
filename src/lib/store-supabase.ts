@@ -25,6 +25,7 @@ type GroupRow = {
   home_currency: string;
   currencies: string[] | null;
   fx_rates: Group["fxRates"] | null;
+  default_currency?: string | null;
   share_code: string;
   created_at: string;
 };
@@ -34,6 +35,7 @@ const toGroup = (r: GroupRow): Group => ({
   homeCurrency: r.home_currency,
   currencies: r.currencies?.length ? r.currencies : [r.home_currency],
   fxRates: r.fx_rates ?? {},
+  defaultCurrency: r.default_currency ?? undefined,
   shareCode: r.share_code,
   createdAt: r.created_at,
 });
@@ -161,6 +163,18 @@ export function createSupabaseStore(): Store {
         p_currencies: normalizeCurrencies(input.homeCurrency, input.currencies),
       });
       activeCode = row.share_code;
+      // create_group has no default-currency argument, so set it in a follow-up
+      // update. Non-fatal: on a not-yet-migrated DB the group is still created
+      // and new expenses simply start in the home currency.
+      if (input.defaultCurrency && input.defaultCurrency !== input.homeCurrency) {
+        try {
+          return await this.updateGroup(row.id, {
+            defaultCurrency: input.defaultCurrency,
+          });
+        } catch {
+          // fall through to the group as created
+        }
+      }
       return toGroup(row);
     },
 
@@ -188,8 +202,9 @@ export function createSupabaseStore(): Store {
     },
 
     async updateGroup(_id, patch) {
-      // Only send p_fx_rates when it's actually being changed, so name/currency
-      // updates still match the older 4-arg function on a not-yet-migrated DB.
+      // Only send p_fx_rates / p_default_currency when they're actually being
+      // changed, so other updates still match the older 4- and 5-arg functions
+      // on a not-yet-migrated DB.
       const args: Record<string, unknown> = {
         p_code: requireCode(),
         p_name: patch.name ?? null,
@@ -203,6 +218,11 @@ export function createSupabaseStore(): Store {
             : null,
       };
       if (patch.fxRates !== undefined) args.p_fx_rates = patch.fxRates;
+      if (patch.defaultCurrency !== undefined) {
+        // The 6-arg function needs every argument named.
+        args.p_fx_rates = patch.fxRates ?? null;
+        args.p_default_currency = patch.defaultCurrency;
+      }
       const row = await call<GroupRow>("update_group", args);
       return toGroup(row);
     },

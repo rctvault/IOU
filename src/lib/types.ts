@@ -26,6 +26,12 @@ export interface Group {
    * of them at once.
    */
   fxRates: Record<CurrencyCode, FxRateEntry>;
+  /**
+   * The currency a new expense starts in (e.g. the local currency of the trip).
+   * Separate from the home currency, which is what balances settle in. Unset =
+   * the home currency.
+   */
+  defaultCurrency?: CurrencyCode;
   /** Short human-shareable code embedded in the URL (/g/<shareCode>). */
   shareCode: string;
   createdAt: string;
@@ -51,6 +57,15 @@ export function groupCurrencies(group: Group): CurrencyCode[] {
   return [group.homeCurrency, ...list].filter(
     (c, i, a) => a.indexOf(c) === i,
   );
+}
+
+/**
+ * The currency a new expense starts in: the group's default if it is still one
+ * of the trip currencies, otherwise the home currency.
+ */
+export function groupDefaultCurrency(group: Group): CurrencyCode {
+  const d = group.defaultCurrency;
+  return d && groupCurrencies(group).includes(d) ? d : group.homeCurrency;
 }
 
 export interface Member {
@@ -121,9 +136,13 @@ export interface GroupBundle {
 // Input shapes for creates (ids/timestamps are assigned by the store).
 export type NewGroup = Pick<Group, "name" | "homeCurrency"> & {
   currencies?: CurrencyCode[];
+  defaultCurrency?: CurrencyCode;
 };
 export type GroupPatch = Partial<
-  Pick<Group, "name" | "homeCurrency" | "currencies" | "fxRates">
+  Pick<
+    Group,
+    "name" | "homeCurrency" | "currencies" | "fxRates" | "defaultCurrency"
+  >
 >;
 export type NewMember = Pick<Member, "name" | "color">;
 export type MemberPatch = Partial<Pick<Member, "name" | "color" | "active">>;

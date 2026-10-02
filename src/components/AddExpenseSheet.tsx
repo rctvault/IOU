@@ -1,18 +1,19 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { CURRENCIES } from "@/lib/currencies";
+import { roundMoney } from "@/lib/currency";
 import { formatDate, formatMoney, todayISO } from "@/lib/format";
 import { fetchFxRate } from "@/lib/fx";
 import { getStore } from "@/lib/store";
 import { computeExpenseBreakdown, type Expense, type LineItem } from "@/lib/split";
 import {
   groupCurrencies,
+  groupDefaultCurrency,
   isActive,
   type ExpenseRecord,
   type GroupBundle,
 } from "@/lib/types";
-import { Avatar, Sheet } from "./ui";
+import { Avatar, Sheet, UnsavedDialog } from "./ui";
 
 interface MemberState {
   memberId: string;
@@ -57,18 +58,25 @@ export function AddExpenseSheet({
       (me && members.some((m) => m.id === me) ? me : members[0]?.id) ??
       "",
   );
-  const [currency, setCurrency] = useState(editing?.currency ?? home);
-  // Currencies offered in the picker: the group's trip currencies, plus this
-  // expense's currency if it was since removed from the group.
-  const [available, setAvailable] = useState<string[]>(() =>
-    [...groupCurrencies(group), editing?.currency ?? ""].filter(
-      (c, i, a) => c && a.indexOf(c) === i,
-    ),
+  const [currency, setCurrency] = useState(
+    editing?.currency ?? groupDefaultCurrency(group),
   );
-  const [pickingCurrency, setPickingCurrency] = useState(false);
+  // Currencies offered in the picker: the group's trip currencies (managed in
+  // Settings), plus this expense's currency if it was since removed from the
+  // group.
+  const available = [...groupCurrencies(group), editing?.currency ?? ""].filter(
+    (c, i, a) => c && a.indexOf(c) === i,
+  );
   // Auto-fetched rate for a currency the group doesn't have a rate for yet.
   const [autoRate, setAutoRate] = useState<number | null>(null);
-  const [taxRate, setTaxRate] = useState(String(editing?.taxRate ?? 0));
+  // Amounts are assumed to already include tax. Unticking "Tax included" treats
+  // them as pre-tax and adds a percentage on top. A stored tax rate of 0 is the
+  // tax-included case, so no extra field is persisted.
+  const [taxIncluded, setTaxIncluded] = useState(!editing?.taxRate);
+  const [taxRate, setTaxRate] = useState(
+    editing?.taxRate ? String(editing.taxRate) : "",
+  );
+  const effectiveTaxRate = taxIncluded ? 0 : num(taxRate);
   const [splitMode, setSplitMode] = useState<"equal" | "itemized">(
     editing?.splitMode ?? "equal",
   );
@@ -116,7 +124,6 @@ export function AddExpenseSheet({
   // The trip rate for this currency (if the group has one), else null.
   const groupRate =
     currency === home ? 1 : group.fxRates?.[currency]?.rate ?? null;
-  const rateIsManual = Boolean(group.fxRates?.[currency]?.manual);
   const effectiveRate =
     currency === home
       ? 1
@@ -141,13 +148,37 @@ export function AddExpenseSheet({
 
   const included = memberStates.filter((s) => s.included);
 
+  // Everything the user can change, compared against how the sheet opened, so
+  // closing with unsaved input can warn first.
+  const snapshot = JSON.stringify([
+    label,
+    date,
+    payerId,
+    currency,
+    taxIncluded,
+    taxRate,
+    splitMode,
+    subtotal,
+    items,
+    memberStates,
+  ]);
+  const [initialSnapshot] = useState(snapshot);
+  const dirty = snapshot !== initialSnapshot;
+  const [confirmingClose, setConfirmingClose] = useState(false);
+
+  function beforeClose() {
+    if (!dirty || busy) return true;
+    setConfirmingClose(true);
+    return false;
+  }
+
   const draft: Expense = useMemo(
     () => ({
       id: "preview",
       payerMemberId: payerId,
       currency,
       fxRateToHome: effectiveRate,
-      taxRate: num(taxRate),
+      taxRate: effectiveTaxRate,
       splitMode,
       subtotal: splitMode === "equal" ? num(subtotal) : undefined,
       lineItems: splitMode === "itemized" ? items : [],
@@ -156,7 +187,7 @@ export function AddExpenseSheet({
         discountPct: s.discountPct,
       })),
     }),
-    [payerId, currency, effectiveRate, taxRate, splitMode, subtotal, items, included],
+    [payerId, currency, effectiveRate, effectiveTaxRate, splitMode, subtotal, items, included],
   );
 
   const breakdown = useMemo(
@@ -169,6 +200,9 @@ export function AddExpenseSheet({
       prev.map((s) => (s.memberId === id ? { ...s, included: !s.included } : s)),
     );
   }
+  function setAllIncluded(included: boolean) {
+    setMemberStates((prev) => prev.map((s) => ({ ...s, included })));
+  }
   function setDiscount(id: string, v: number) {
     setMemberStates((prev) =>
       prev.map((s) =>
@@ -179,12 +213,16 @@ export function AddExpenseSheet({
     );
   }
 
-  const canSave =
-    payerId &&
-    included.length > 0 &&
-    (splitMode === "equal"
+  // What still has to be filled in before the expense can be saved.
+  const missing = [
+    !label.trim() && "a title",
+    !(splitMode === "equal"
       ? num(subtotal) > 0
-      : items.some((i) => i.amount > 0));
+      : items.some((i) => i.amount > 0)) && "an amount",
+    included.length === 0 && "someone to split it between",
+  ].filter(Boolean) as string[];
+  const canSave = Boolean(payerId) && missing.length === 0;
+  const missingText = missing.join(missing.length > 2 ? ", " : " and ");
 
   async function save() {
     if (!canSave) return;
@@ -207,11 +245,11 @@ export function AddExpenseSheet({
       }
     }
     const record = {
-      label: label.trim() || "Expense",
+      label: label.trim(),
       payerMemberId: payerId,
       currency,
       fxRateToHome: effectiveRate,
-      taxRate: num(taxRate),
+      taxRate: effectiveTaxRate,
       splitMode,
       subtotal: splitMode === "equal" ? num(subtotal) : undefined,
       lineItems: splitMode === "itemized" ? items.filter((i) => i.amount > 0) : [],
@@ -242,6 +280,11 @@ export function AddExpenseSheet({
     await onSaved();
   }
 
+  const itemsTotal = roundMoney(
+    items.reduce((a, i) => a + i.amount, 0),
+    currency,
+  );
+
   const nameOf = (id: string) => members.find((m) => m.id === id)?.name ?? "—";
 
   return (
@@ -249,25 +292,33 @@ export function AddExpenseSheet({
       open
       title={editing ? "Edit expense" : "Add expense"}
       onClose={onClose}
+      beforeClose={beforeClose}
       footer={
-        <div className="flex gap-3">
-          {editing && (
-            <button
-              className="btn-outline text-negative"
-              onClick={remove}
-              disabled={busy}
-            >
-              Delete
-            </button>
+        <>
+          {dirty && missing.length > 0 && (
+            <p className="mb-2 text-xs text-muted">
+              Needs {missingText} before it can be saved.
+            </p>
           )}
-          <button
-            className="btn-brand flex-1"
-            onClick={save}
-            disabled={busy || !canSave}
-          >
-            {editing ? "Save changes" : "Add expense"}
-          </button>
-        </div>
+          <div className="flex gap-3">
+            {editing && (
+              <button
+                className="btn-outline text-negative"
+                onClick={remove}
+                disabled={busy}
+              >
+                Delete
+              </button>
+            )}
+            <button
+              className="btn-brand flex-1"
+              onClick={save}
+              disabled={busy || !canSave}
+            >
+              {editing ? "Save changes" : "Add expense"}
+            </button>
+          </div>
+        </>
       }
     >
       <div className="space-y-4">
@@ -321,92 +372,72 @@ export function AddExpenseSheet({
           </div>
         </div>
 
-        {/* Currency + FX */}
+        {/* Currency + amount */}
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="label">Currency</label>
             <select
               className="input"
               value={currency}
-              onChange={(e) => {
-                if (e.target.value === "__add__") setPickingCurrency(true);
-                else setCurrency(e.target.value);
-              }}
+              onChange={(e) => setCurrency(e.target.value)}
             >
               {available.map((code) => (
                 <option key={code} value={code}>
                   {code}
                 </option>
               ))}
-              <option value="__add__">+ Add another currency…</option>
             </select>
           </div>
           <div>
-            <label className="label">Tax %</label>
-            <input
-              className="input"
-              inputMode="decimal"
-              value={taxRate}
-              onChange={(e) => setTaxRate(e.target.value)}
-            />
+            <label className="label">Amount</label>
+            {splitMode === "equal" ? (
+              <input
+                className="input"
+                inputMode="decimal"
+                placeholder="0.00"
+                value={subtotal}
+                onChange={(e) => setSubtotal(e.target.value)}
+              />
+            ) : (
+              // Itemized: the amount is the running total of the items below.
+              <input
+                className="input text-muted"
+                readOnly
+                tabIndex={-1}
+                aria-label="Items total"
+                placeholder="Sum of items"
+                value={itemsTotal || ""}
+              />
+            )}
           </div>
         </div>
 
-        {pickingCurrency && (
-          <div>
-            <label className="label">Add a currency to this trip</label>
-            <select
-              className="input"
-              autoFocus
-              value=""
-              onChange={async (e) => {
-                const code = e.target.value;
-                if (!code) return;
-                const next = [...available, code].filter(
-                  (c, i, a) => a.indexOf(c) === i,
-                );
-                setAvailable(next);
-                setCurrency(code);
-                setPickingCurrency(false);
-                // Persist to the group so it's a one-tap pick next time.
-                try {
-                  const store = await getStore();
-                  await store.updateGroup(group.id, { currencies: next });
-                } catch {
-                  /* non-fatal — still usable for this expense */
-                }
-              }}
-            >
-              <option value="">Choose a currency…</option>
-              {CURRENCIES.filter((c) => !available.includes(c.code)).map((c) => (
-                <option key={c.code} value={c.code}>
-                  {c.code} — {c.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-
-        {currency !== home && (
-          <div className="rounded-xl border border-border bg-surface px-3.5 py-2.5">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted">Rate</span>
-              <span className="font-medium">
-                1 {currency} ={" "}
-                {effectiveRate.toLocaleString(undefined, {
-                  maximumFractionDigits: 4,
-                })}{" "}
-                {home}
-                <span className="ml-1.5 rounded-full bg-black/5 px-1.5 py-0.5 text-xs text-muted">
-                  {rateIsManual ? "manual" : "auto"}
-                </span>
-              </span>
+        {/* Tax */}
+        <div className="flex min-h-10 items-center justify-between gap-3">
+          <label className="flex items-center gap-2 text-sm font-medium">
+            <input
+              type="checkbox"
+              className="h-5 w-5 accent-brand"
+              checked={taxIncluded}
+              onChange={(e) => setTaxIncluded(e.target.checked)}
+            />
+            Tax included
+          </label>
+          {!taxIncluded && (
+            <div className="flex items-center gap-1">
+              <span className="text-xs text-muted">add</span>
+              <input
+                className="input w-20 text-center"
+                inputMode="decimal"
+                placeholder="0"
+                aria-label="Tax percent"
+                value={taxRate}
+                onChange={(e) => setTaxRate(e.target.value)}
+              />
+              <span className="text-xs text-muted">% tax</span>
             </div>
-            <div className="mt-1 text-xs text-muted">
-              Shared by all {currency} expenses — change it in Settle up.
-            </div>
-          </div>
-        )}
+          )}
+        </div>
 
         {/* Split mode */}
         <div className="flex rounded-xl border border-border p-1 text-sm">
@@ -423,20 +454,11 @@ export function AddExpenseSheet({
           ))}
         </div>
 
-        {splitMode === "equal" ? (
-          <div>
-            <label className="label">Subtotal (before tax)</label>
-            <input
-              className="input"
-              inputMode="decimal"
-              placeholder="0.00"
-              value={subtotal}
-              onChange={(e) => setSubtotal(e.target.value)}
-            />
-          </div>
-        ) : (
+        {splitMode === "itemized" && (
           <div className="space-y-2">
-            <label className="label">Items (before tax)</label>
+            <label className="label">
+              Items ({taxIncluded ? "tax included" : "before tax"})
+            </label>
             {items.map((it, i) => (
               <div
                 key={i}
@@ -519,7 +541,20 @@ export function AddExpenseSheet({
         {/* Participants */}
         <div>
           <div className="mb-1.5 flex items-center justify-between">
-            <label className="label mb-0">Split between</label>
+            <div className="flex items-center gap-1.5">
+              <label className="label mb-0">Split between</label>
+              {/* Quick select: "None" then tap the few who shared it. */}
+              {([true, false] as const).map((on) => (
+                <button
+                  key={String(on)}
+                  onClick={() => setAllIncluded(on)}
+                  disabled={memberStates.every((s) => s.included === on)}
+                  className="rounded-full border border-border px-2.5 py-0.5 text-xs font-medium text-muted active:scale-[0.98] disabled:opacity-40"
+                >
+                  {on ? "All" : "None"}
+                </button>
+              ))}
+            </div>
             <button
               onClick={() => setShowDiscounts((s) => !s)}
               className="text-xs font-medium text-brand"
@@ -600,6 +635,23 @@ export function AddExpenseSheet({
           </div>
         )}
       </div>
+
+      {confirmingClose && (
+        <UnsavedDialog
+          title="This expense hasn't been saved"
+          message={
+            canSave
+              ? "If you close now, what you entered will be lost."
+              : `It still needs ${missingText || "a payer"}. If you close now, what you entered will be lost.`
+          }
+          saveLabel={editing ? "Save changes" : "Save expense"}
+          canSave={canSave}
+          busy={busy}
+          onSave={save}
+          onKeepEditing={() => setConfirmingClose(false)}
+          onDiscard={onClose}
+        />
+      )}
     </Sheet>
   );
 }

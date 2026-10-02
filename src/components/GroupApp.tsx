@@ -27,7 +27,6 @@ import {
 import { AddExpenseSheet } from "./AddExpenseSheet";
 import { GroupSettingsSheet } from "./GroupSettingsSheet";
 import { HistorySheet } from "./HistorySheet";
-import { MembersSheet } from "./MembersSheet";
 import { SettleUpSheet } from "./SettleUpSheet";
 import { TrashSheet } from "./TrashSheet";
 import { Avatar } from "./ui";
@@ -35,7 +34,6 @@ import { Avatar } from "./ui";
 type SheetName =
   | "add"
   | "settle"
-  | "members"
   | "settings"
   | "history"
   | "trash"
@@ -182,12 +180,9 @@ export default function GroupApp({ code }: { code: string }) {
               ← All groups
             </Link>
             <h1 className="mt-1 text-xl font-bold">{group.name}</h1>
-            <button
-              onClick={() => setSheet("settings")}
-              className="mt-0.5 text-left text-sm text-white/80 hover:text-white"
-            >
-              {groupCurrencies(group).join(" · ")} · edit ⚙
-            </button>
+            <p className="mt-0.5 text-sm text-white/80">
+              {groupCurrencies(group).join(" · ")}
+            </p>
           </div>
           <button
             onClick={copyInvite}
@@ -198,9 +193,10 @@ export default function GroupApp({ code }: { code: string }) {
             <div className="text-white/70">{copied ? "Copied!" : "Tap to copy"}</div>
           </button>
         </div>
+        <div className="mt-4 flex items-center justify-between gap-3">
         <button
-          onClick={() => setSheet("members")}
-          className="mt-4 flex items-center gap-1"
+          onClick={() => setSheet("settings")}
+          className="flex items-center gap-1"
         >
           {members.length === 0 ? (
             <span className="text-sm text-white/80">+ Add members</span>
@@ -224,6 +220,13 @@ export default function GroupApp({ code }: { code: string }) {
             </>
           )}
         </button>
+          <button
+            onClick={() => setSheet("settings")}
+            className="rounded-full bg-white/15 px-3 py-1.5 text-xs font-semibold backdrop-blur"
+          >
+            ⚙ Settings
+          </button>
+        </div>
       </header>
 
       <main className="space-y-5 px-5 py-5">
@@ -275,7 +278,7 @@ export default function GroupApp({ code }: { code: string }) {
             title="Add your group first"
             hint="You need people in the group before you can log expenses."
             cta="+ Add members"
-            onAction={() => setSheet("members")}
+            onAction={() => setSheet("settings")}
           />
         ) : expenses.length === 0 ? (
           <EmptyState
@@ -414,13 +417,6 @@ export default function GroupApp({ code }: { code: string }) {
       )}
       {sheet === "trash" && (
         <TrashSheet
-          bundle={bundle}
-          onClose={() => setSheet(null)}
-          onChanged={load}
-        />
-      )}
-      {sheet === "members" && (
-        <MembersSheet
           bundle={bundle}
           onClose={() => setSheet(null)}
           onChanged={load}

@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { CURRENCIES } from "@/lib/currencies";
 
 /**
@@ -17,15 +16,12 @@ export function CurrencyList({
   value: string[];
   onChange: (next: string[]) => void;
 }) {
-  const [toAdd, setToAdd] = useState("");
-
   const list = [home, ...value].filter((c, i, a) => c && a.indexOf(c) === i);
   const available = CURRENCIES.filter((c) => !list.includes(c.code));
 
-  function add() {
-    if (!toAdd) return;
-    onChange([...list, toAdd]);
-    setToAdd("");
+  function add(code: string) {
+    if (!code) return;
+    onChange([...list, code]);
   }
   function remove(code: string) {
     if (code === home) return;
@@ -51,6 +47,7 @@ export function CurrencyList({
               </span>
             ) : (
               <button
+                type="button"
                 onClick={() => remove(code)}
                 className="text-muted hover:text-negative"
                 aria-label={`Remove ${code}`}
@@ -62,23 +59,19 @@ export function CurrencyList({
         ))}
       </div>
       {available.length > 0 && (
-        <div className="flex gap-2">
-          <select
-            className="input flex-1"
-            value={toAdd}
-            onChange={(e) => setToAdd(e.target.value)}
-          >
-            <option value="">Add a currency…</option>
-            {available.map((c) => (
-              <option key={c.code} value={c.code}>
-                {c.code} — {c.name}
-              </option>
-            ))}
-          </select>
-          <button className="btn-outline" onClick={add} disabled={!toAdd}>
-            Add
-          </button>
-        </div>
+        // Picking a currency adds it straight away (no separate Add step).
+        <select
+          className="input"
+          value=""
+          onChange={(e) => add(e.target.value)}
+        >
+          <option value="">+ Add a currency…</option>
+          {available.map((c) => (
+            <option key={c.code} value={c.code}>
+              {c.code} — {c.name}
+            </option>
+          ))}
+        </select>
       )}
     </div>
   );

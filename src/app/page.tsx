@@ -17,6 +17,9 @@ export default function Home() {
   const [name, setName] = useState("");
   const [currency, setCurrency] = useState("JPY");
   const [currencies, setCurrencies] = useState<string[]>(["JPY"]);
+  const [defaultCur, setDefaultCur] = useState("JPY");
+  // The picked default only counts while it is still in the list.
+  const effectiveDefault = currencies.includes(defaultCur) ? defaultCur : currency;
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -77,6 +80,8 @@ export default function Home() {
   }
 
   function changeHome(next: string) {
+    // A default that was just following the home currency keeps following it.
+    if (defaultCur === currency) setDefaultCur(next);
     setCurrency(next);
     setCurrencies((prev) =>
       [next, ...prev].filter((c, i, a) => a.indexOf(c) === i),
@@ -94,6 +99,7 @@ export default function Home() {
         name: name.trim(),
         homeCurrency: currency,
         currencies,
+        defaultCurrency: effectiveDefault,
       });
       router.push(`/g/${group.shareCode}`);
     } catch {
@@ -238,6 +244,22 @@ export default function Home() {
             onChange={setCurrencies}
           />
         </div>
+        {currencies.length > 1 && (
+          <div>
+            <label className="label">Default currency for new expenses</label>
+            <select
+              className="input"
+              value={effectiveDefault}
+              onChange={(e) => setDefaultCur(e.target.value)}
+            >
+              {currencies.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
         <button className="btn-brand w-full" disabled={busy || !name.trim()}>
           Create group
         </button>

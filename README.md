@@ -56,8 +56,9 @@ All calculations live in [`src/lib/split.ts`](src/lib/split.ts) and
 
 - **Split** equally, or **itemized** (assign items to people; unassigned items
   are shared equally).
-- **Tax** is a percentage on the bill, allocated proportionally to each person's
-  share. Gross shares use the largest-remainder method so they sum exactly to
+- **Tax** is assumed to be included in the amount. Untick "Tax included" to add
+  a percentage on top, allocated proportionally to each person's share. Gross
+  shares use the largest-remainder method so they sum exactly to
   the bill total (no lost cents), correct for 0-, 2-, and 3-decimal currencies.
 - **Discount**: the payer can drop any person to e.g. 50% of their share; the
   payer absorbs the remainder. It only changes what that person owes the payer —
@@ -80,7 +81,7 @@ npm run build    # production build
 
 ```
 src/lib/          split math, currency helpers, FX, storage adapters, types
-src/components/   GroupApp + the add-expense / settle-up / members sheets
+src/components/   GroupApp + the add-expense / settle-up / settings sheets
 src/app/          landing page, /g/[code] group page, /api/fx route
 supabase/         schema.sql — tables + code-gated access functions
 netlify.toml      deploy config

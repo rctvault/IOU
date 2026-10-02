@@ -3,6 +3,7 @@
 
 import { beforeEach, describe, expect, it } from "vitest";
 import { computeBalances, simplifyDebts } from "./split";
+import { groupDefaultCurrency } from "./types";
 
 const mem = new Map<string, string>();
 // Minimal localStorage + window shims for the Node test environment.
@@ -210,5 +211,48 @@ describe("localStorage store — full lifecycle", () => {
     expect(await store.getGroupByCode(group.shareCode)).not.toBeNull();
     await store.deleteGroup(group.id);
     expect(await store.getGroupByCode(group.shareCode)).toBeNull();
+  });
+});
+
+describe("default currency for new expenses", () => {
+  beforeEach(() => mem.clear());
+
+  it("falls back to the home currency when none is set", async () => {
+    const store = createLocalStore();
+    const group = await store.createGroup({
+      name: "Vietnam",
+      homeCurrency: "JPY",
+      currencies: ["JPY", "VND", "USD"],
+    });
+    expect(groupDefaultCurrency(group)).toBe("JPY");
+  });
+
+  it("can be set at creation and changed later", async () => {
+    const store = createLocalStore();
+    const group = await store.createGroup({
+      name: "Vietnam",
+      homeCurrency: "JPY",
+      currencies: ["JPY", "VND", "USD"],
+      defaultCurrency: "VND",
+    });
+    expect(groupDefaultCurrency(group)).toBe("VND");
+
+    await store.updateGroup(group.id, { defaultCurrency: "USD" });
+    const bundle = (await store.getGroupByCode(group.shareCode))!;
+    expect(groupDefaultCurrency(bundle.group)).toBe("USD");
+    // Home currency (used for settle-up) is untouched.
+    expect(bundle.group.homeCurrency).toBe("JPY");
+  });
+
+  it("ignores a default that is no longer one of the trip currencies", async () => {
+    const store = createLocalStore();
+    const group = await store.createGroup({
+      name: "Vietnam",
+      homeCurrency: "JPY",
+      currencies: ["JPY", "VND"],
+      defaultCurrency: "VND",
+    });
+    const updated = await store.updateGroup(group.id, { currencies: ["JPY"] });
+    expect(groupDefaultCurrency(updated)).toBe("JPY");
   });
 });

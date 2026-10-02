@@ -3,10 +3,24 @@
 import { useState } from "react";
 import { CURRENCIES } from "@/lib/currencies";
 import { getStore } from "@/lib/store";
-import { groupCurrencies, type GroupBundle } from "@/lib/types";
+import {
+  groupCurrencies,
+  groupDefaultCurrency,
+  type GroupBundle,
+} from "@/lib/types";
 import { CurrencyList } from "./CurrencyList";
 import { FxRatesEditor } from "./FxRatesEditor";
-import { Sheet } from "./ui";
+import { MembersSection } from "./MembersSection";
+import { Sheet, UnsavedDialog } from "./ui";
+
+/** Supabase throws plain error objects, not Error instances. */
+function errorMessage(err: unknown): string {
+  return err instanceof Error
+    ? err.message
+    : err && typeof err === "object" && "message" in err
+      ? String((err as { message?: unknown }).message)
+      : "";
+}
 
 export function GroupSettingsSheet({
   bundle,
@@ -25,7 +39,19 @@ export function GroupSettingsSheet({
   const [currencies, setCurrencies] = useState<string[]>(() =>
     groupCurrencies(group),
   );
+  const [defaultCur, setDefaultCur] = useState(() =>
+    groupDefaultCurrency(group),
+  );
+  // The picked default only counts while it is still a trip currency.
+  const effectiveDefault = currencies.includes(defaultCur) ? defaultCur : home;
+  // Name and currency edits only apply on Save (members save instantly), so
+  // closing with them changed warns first.
+  const snapshot = JSON.stringify([name.trim(), home, currencies, effectiveDefault]);
+  const [initialSnapshot] = useState(snapshot);
+  const dirty = snapshot !== initialSnapshot;
+  const [confirmingClose, setConfirmingClose] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [confirmText, setConfirmText] = useState("");
   const [delError, setDelError] = useState<string | null>(null);
   const canDelete = confirmText.trim().toLowerCase() === "delete";
@@ -48,31 +74,59 @@ export function GroupSettingsSheet({
       onDeleted();
     } catch (err) {
       console.error("delete group failed:", err);
-      const msg =
-        err instanceof Error
-          ? err.message
-          : err && typeof err === "object" && "message" in err
-            ? String((err as { message?: unknown }).message)
-            : "";
+      const msg = errorMessage(err);
       setDelError(msg ? `Couldn't delete: ${msg}` : "Couldn't delete. Try again.");
       setBusy(false);
     }
   }
 
   function changeHome(next: string) {
+    // A default that was just following the home currency keeps following it.
+    if (defaultCur === home) setDefaultCur(next);
     setHome(next);
     setCurrencies((prev) => [next, ...prev].filter((c, i, a) => a.indexOf(c) === i));
   }
 
+  function beforeClose() {
+    if (!dirty || busy) return true;
+    setConfirmingClose(true);
+    return false;
+  }
+
   async function save() {
+    setConfirmingClose(false);
     setBusy(true);
-    const store = await getStore();
-    await store.updateGroup(group.id, {
-      name: name.trim() || group.name,
-      homeCurrency: home,
-      currencies,
-    });
-    setBusy(false);
+    setSaveError(null);
+    try {
+      const store = await getStore();
+      await store.updateGroup(group.id, {
+        name: name.trim() || group.name,
+        homeCurrency: home,
+        currencies,
+      });
+    } catch (err) {
+      console.error("save group failed:", err);
+      const msg = errorMessage(err);
+      setSaveError(msg ? `Couldn't save: ${msg}` : "Couldn't save. Try again.");
+      setBusy(false);
+      return;
+    }
+    // Saved separately, and only when changed, so everything above still saves
+    // on a DB that hasn't had supabase/add-default-currency.sql run yet.
+    if (effectiveDefault !== groupDefaultCurrency(group)) {
+      try {
+        const store = await getStore();
+        await store.updateGroup(group.id, { defaultCurrency: effectiveDefault });
+      } catch (err) {
+        console.error("save default currency failed:", err);
+        await onChanged();
+        setSaveError(
+          "Saved, except the default currency — the database needs supabase/add-default-currency.sql run first.",
+        );
+        setBusy(false);
+        return;
+      }
+    }
     await onChanged();
     onClose();
   }
@@ -80,22 +134,50 @@ export function GroupSettingsSheet({
   return (
     <Sheet
       open
-      title="Group settings"
+      title="Settings"
       onClose={onClose}
+      beforeClose={beforeClose}
       footer={
-        <button className="btn-brand w-full" onClick={save} disabled={busy}>
-          Save
-        </button>
+        <>
+          {saveError && (
+            <p className="mb-2 text-xs text-negative">{saveError}</p>
+          )}
+          <button className="btn-brand w-full" onClick={save} disabled={busy}>
+            Save
+          </button>
+        </>
       }
     >
       <div className="space-y-4">
+        <h3 className="text-sm font-semibold text-muted">Members</h3>
+        <MembersSection bundle={bundle} onChanged={onChanged} />
+
+        <h3 className="border-t border-border pt-4 text-sm font-semibold text-muted">
+          Currencies
+        </h3>
         <div>
-          <label className="label">Group name</label>
-          <input
+          <label className="label">Trip currencies</label>
+          <CurrencyList home={home} value={currencies} onChange={setCurrencies} />
+        </div>
+        <div>
+          <label className="label">Default currency for new expenses</label>
+          <select
             className="input"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
+            value={effectiveDefault}
+            onChange={(e) => setDefaultCur(e.target.value)}
+          >
+            {[home, ...currencies]
+              .filter((c, i, a) => a.indexOf(c) === i)
+              .map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+          </select>
+          <p className="mt-1 text-xs text-muted">
+            Each new expense starts in this currency — you can still pick another
+            one per expense.
+          </p>
         </div>
         <div>
           <label className="label">Home currency (for settle-up)</label>
@@ -110,19 +192,27 @@ export function GroupSettingsSheet({
               </option>
             ))}
           </select>
-        </div>
-        <div>
-          <label className="label">Trip currencies</label>
-          <CurrencyList home={home} value={currencies} onChange={setCurrencies} />
+          <p className="mt-1 text-xs text-muted">
+            Changing the home currency re-expresses everyone&apos;s balances in
+            the new currency using each expense&apos;s saved rate.
+          </p>
         </div>
         <div>
           <label className="label">Exchange rates</label>
           <FxRatesEditor bundle={bundle} onChanged={onChanged} />
         </div>
-        <p className="text-xs text-muted">
-          Changing the home currency re-expresses everyone&apos;s balances in the
-          new currency using each expense&apos;s saved rate.
-        </p>
+
+        <h3 className="border-t border-border pt-4 text-sm font-semibold text-muted">
+          Group
+        </h3>
+        <div>
+          <label className="label">Group name</label>
+          <input
+            className="input"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+        </div>
 
         <div className="mt-2 rounded-2xl border border-negative/30 bg-negative/5 p-4">
           <h3 className="text-sm font-semibold text-negative">Danger zone</h3>
@@ -151,6 +241,18 @@ export function GroupSettingsSheet({
           )}
         </div>
       </div>
+      {confirmingClose && (
+        <UnsavedDialog
+          title="Your settings haven't been saved"
+          message="Changes to the group name or currencies only apply when you save. If you close now, they will be lost."
+          saveLabel="Save settings"
+          canSave
+          busy={busy}
+          onSave={save}
+          onKeepEditing={() => setConfirmingClose(false)}
+          onDiscard={onClose}
+        />
+      )}
     </Sheet>
   );
 }
